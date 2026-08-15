@@ -12,3 +12,17 @@ export const db =
 
 // Cache in all environments to prevent connection pool exhaustion
 globalForPrisma.prisma = db
+
+// Graceful shutdown for serverless environments (Vercel, etc.)
+if (process.env.NODE_ENV !== 'production') {
+  // In development, don't disconnect to allow hot reloading
+  globalForPrisma.prisma = db
+} else {
+  // In production (Vercel), handle connection cleanup
+  if (typeof window === 'undefined') {
+    // Server-side only
+    process.on('beforeExit', async () => {
+      await db.$disconnect()
+    })
+  }
+}

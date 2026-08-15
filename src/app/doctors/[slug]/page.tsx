@@ -15,7 +15,13 @@ import NotFound from "./not-found";
 export default function DoctorProfilePage() {
   const params = useParams();
   const navigate = useNavigate();
-  const slug = decodeURIComponent(params.slug as string);
+  
+  // Handle potential null/undefined params
+  if (!params || typeof params.slug !== 'string') {
+    return <NotFound />;
+  }
+  
+  const slug = decodeURIComponent(params.slug);
 
   const doctor = doctors.find((d) => d.name === slug);
 

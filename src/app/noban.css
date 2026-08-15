@@ -1,0 +1,442 @@
+/* ===========================================================
+   Noban — custom styles (Persian medical appointment UI)
+   Imported after globals.css so brand tokens & utilities load.
+   =========================================================== */
+
+@theme {
+  --font-sans: var(--font-vazirmatn), ui-sans-serif, system-ui, sans-serif;
+  --color-brand-50: #ecfeff;
+  --color-brand-100: #cffafe;
+  --color-brand-200: #a5f3fc;
+  --color-brand-300: #67e8f9;
+  --color-brand-400: #22d3ee;
+  --color-brand-500: #06b6d4;
+  --color-brand-600: #0891b2;
+  --color-brand-700: #0e7490;
+  --color-brand-800: #155e75;
+  --color-brand-900: #164e63;
+}
+
+:root {
+  color-scheme: light;
+}
+
+/* Custom cursor: hide native cursor on hover-capable devices */
+* {
+  cursor: none;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-vazirmatn), sans-serif;
+  color: #0f2733;
+  background:
+    radial-gradient(1100px 600px at 85% -8%, #cffafe 0%, transparent 55%),
+    radial-gradient(1000px 620px at -5% 8%, #dbeafe 0%, transparent 50%),
+    radial-gradient(900px 500px at 50% 110%, #e0f2fe 0%, transparent 55%),
+    #eef6fb;
+  background-attachment: fixed;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Keep native cursor on touch devices */
+@media (hover: none) {
+  * {
+    cursor: auto;
+  }
+}
+
+/* ---------- Scrollbar ---------- */
+::-webkit-scrollbar {
+  width: 11px;
+}
+::-webkit-scrollbar-track {
+  background: #e2eef4;
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(#22d3ee, #0e7490);
+  border-radius: 10px;
+  border: 2px solid #e2eef4;
+}
+::selection {
+  background: rgba(8, 145, 178, 0.18);
+  color: #0e4f63;
+}
+
+/* ---------- 3D helpers ---------- */
+.perspective {
+  perspective: 1400px;
+}
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+/* ---------- Glow / text effects ---------- */
+.drop-glow {
+  filter: drop-shadow(0 2px 5px rgba(8, 145, 178, 0.35));
+}
+
+/* light glass panel — PERFORMANCE: reduced blur 16px → 8px */
+.glass {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.92),
+    rgba(255, 255, 255, 0.72)
+  );
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(8, 145, 178, 0.12);
+  box-shadow: 0 18px 40px -22px rgba(13, 80, 110, 0.35);
+}
+
+/* "Thick-lens" glass for the header.
+   PERFORMANCE: Removed the SVG feTurbulence+feDisplacementMap filter
+   (was the #1 cause of scroll jank — it re-rasterizes the entire backdrop
+   on every frame). Now uses a simple blur which is GPU-accelerated. */
+.glass-lens {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.5),
+    rgba(255, 255, 255, 0.32)
+  );
+  backdrop-filter: blur(12px) saturate(1.3);
+  -webkit-backdrop-filter: blur(12px) saturate(1.3);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    inset 0 -1px 2px rgba(8, 80, 110, 0.1),
+    0 14px 34px -18px rgba(13, 80, 110, 0.42);
+}
+
+/* ---------- Animations ---------- */
+@keyframes float-slow {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-22px) rotate(6deg);
+  }
+}
+.animate-float-slow {
+  animation: float-slow 8s ease-in-out infinite;
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.6;
+  }
+  70% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.animate-pulse-ring {
+  animation: pulse-ring 2.4s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+}
+
+/* ECG / heartbeat line — fully draws each cycle, then fades & resets invisibly */
+@keyframes ecg {
+  0% {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  50% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  78% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+
+@keyframes ecg-dot {
+  0% {
+    offset-distance: 0%;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  78% {
+    opacity: 1;
+  }
+  100% {
+    offset-distance: 100%;
+    opacity: 0;
+  }
+}
+
+/* Orbiting electrons for the login molecule */
+@keyframes orbit-travel {
+  from {
+    offset-distance: 0%;
+  }
+  to {
+    offset-distance: 100%;
+  }
+}
+
+/* Gentle nucleus breathing (NOT a heartbeat rhythm) */
+@keyframes atom-breath {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% center;
+  }
+  100% {
+    background-position: -200% center;
+  }
+}
+.shimmer-text {
+  background: linear-gradient(
+    90deg,
+    #0e7490 0%,
+    #2563eb 30%,
+    #06b6d4 50%,
+    #2563eb 70%,
+    #0e7490 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 6s linear infinite;
+}
+
+/* 3D grid floor (light) */
+.grid-floor {
+  background-image: linear-gradient(rgba(8, 145, 178, 0.14) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(8, 145, 178, 0.14) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* form inputs (light) */
+.input {
+  width: 100%;
+  border-radius: 0.85rem;
+  border: 1px solid #cdddea;
+  background: rgba(255, 255, 255, 0.85);
+  padding: 0.8rem 1rem;
+  font-size: 0.92rem;
+  color: #0f2733;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+.input::placeholder {
+  color: #94a8b5;
+}
+.input:focus {
+  border-color: #06b6d4;
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(6, 182, 212, 0.14);
+}
+.input option {
+  color: #0f2733;
+}
+
+/* ===========================================================
+   DARK MODE
+   Triggered by `.dark` on <html>. Adapts the glass-morphism
+   design system to a deep-slate medical-dark theme.
+   =========================================================== */
+.dark {
+  color-scheme: dark;
+}
+
+.dark body {
+  color: #e2e8f0;
+  background:
+    radial-gradient(1100px 600px at 85% -8%, #0e3a4a 0%, transparent 55%),
+    radial-gradient(1000px 620px at -5% 8%, #1e293b 0%, transparent 50%),
+    radial-gradient(900px 500px at 50% 110%, #0c1f2e 0%, transparent 55%),
+    #0a1520;
+}
+
+/* Scrollbar (dark) */
+.dark ::-webkit-scrollbar-track {
+  background: #0f1e2b;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: linear-gradient(#0891b2, #155e75);
+  border-color: #0f1e2b;
+}
+.dark ::selection {
+  background: rgba(34, 211, 238, 0.25);
+  color: #67e8f9;
+}
+
+/* Glass panel (dark) */
+.dark .glass {
+  background: linear-gradient(
+    135deg,
+    rgba(30, 48, 65, 0.82),
+    rgba(20, 35, 50, 0.62)
+  );
+  border: 1px solid rgba(34, 211, 238, 0.14);
+  box-shadow: 0 18px 40px -22px rgba(0, 0, 0, 0.6);
+}
+
+/* Glass-lens header (dark) */
+.dark .glass-lens {
+  background: linear-gradient(
+    180deg,
+    rgba(20, 35, 50, 0.55),
+    rgba(15, 28, 40, 0.4)
+  );
+  border: 1px solid rgba(34, 211, 238, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(103, 232, 249, 0.15),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.3),
+    0 14px 34px -18px rgba(0, 0, 0, 0.7);
+}
+
+/* Grid floor (dark) */
+.dark .grid-floor {
+  background-image: linear-gradient(rgba(34, 211, 238, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 211, 238, 0.1) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+/* Inputs (dark) */
+.dark .input {
+  border-color: #1e3a4a;
+  background: rgba(15, 28, 40, 0.85);
+  color: #e2e8f0;
+}
+.dark .input::placeholder {
+  color: #5e7488;
+}
+.dark .input:focus {
+  border-color: #06b6d4;
+  background: #0f1e2b;
+  box-shadow: 0 0 0 4px rgba(6, 182, 212, 0.2);
+}
+.dark .input option {
+  color: #e2e8f0;
+  background: #0f1e2b;
+}
+
+/* Text color helpers — override slate-900 etc. in dark */
+.dark .text-slate-900 { color: #f1f5f9 !important; }
+.dark .text-slate-800 { color: #e2e8f0 !important; }
+.dark .text-slate-700 { color: #cbd5e1 !important; }
+.dark .text-slate-600 { color: #94a3b8 !important; }
+.dark .text-slate-500 { color: #64748b !important; }
+.dark .text-slate-400 { color: #475569 !important; }
+.dark .text-slate-300 { color: #334155 !important; }
+
+/* Background helpers in dark */
+.dark .bg-white\/85 { background: rgba(20, 35, 50, 0.85) !important; }
+.dark .bg-white\/70 { background: rgba(20, 35, 50, 0.7) !important; }
+.dark .bg-white\/60 { background: rgba(20, 35, 50, 0.6) !important; }
+.dark .bg-white { background: #142332 !important; color: #e2e8f0; }
+.dark .bg-white\/50 { background: rgba(20, 35, 50, 0.5) !important; }
+.dark .border-slate-200 { border-color: #1e3a4a !important; }
+.dark .border-slate-100 { border-color: #16293a !important; }
+.dark .divide-slate-100 > * + * { border-color: #16293a !important; }
+.dark .ring-slate-200 { --tw-ring-color: #1e3a4a !important; }
+
+/* Tinted chip backgrounds in dark */
+.dark .bg-cyan-50 { background: rgba(8, 145, 178, 0.15) !important; }
+.dark .bg-cyan-50\/70 { background: rgba(8, 145, 178, 0.12) !important; }
+.dark .bg-emerald-50 { background: rgba(16, 185, 129, 0.15) !important; }
+.dark .bg-amber-50 { background: rgba(245, 158, 11, 0.15) !important; }
+.dark .bg-rose-50 { background: rgba(244, 63, 94, 0.15) !important; }
+.dark .bg-violet-50 { background: rgba(139, 92, 246, 0.15) !important; }
+.dark .bg-slate-50 { background: rgba(30, 48, 65, 0.6) !important; }
+.dark .bg-slate-100 { background: rgba(30, 48, 65, 0.8) !important; }
+.dark .bg-slate-50\/50 { background: rgba(30, 48, 65, 0.5) !important; }
+
+/* Gradient text shimmer in dark stays bright */
+.dark .shimmer-text {
+  background: linear-gradient(
+    90deg,
+    #67e8f9 0%,
+    #60a5fa 30%,
+    #22d3ee 50%,
+    #60a5fa 70%,
+    #67e8f9 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Hero gradient veils in dark */
+.dark .from-white\/45 { --tw-gradient-from: rgba(10, 21, 32, 0.5) !important; }
+.dark .from-white\/60 { --tw-gradient-from: rgba(10, 21, 32, 0.6) !important; }
+.dark .from-white\/35 { --tw-gradient-from: rgba(10, 21, 32, 0.4) !important; }
+.dark .via-white\/10 { --tw-gradient-via: rgba(10, 21, 32, 0.15) !important; }
+.dark .via-white\/5 { --tw-gradient-via: transparent !important; }
+.dark .to-\[\#eef6fb\] { --tw-gradient-to: #0a1520 !important; }
+
+/* Footer in dark */
+.dark .bg-white\/60 { background: rgba(15, 28, 40, 0.6) !important; }
+.dark .border-cyan-100 { border-color: rgba(34, 211, 238, 0.15) !important; }
+
+/* Gradient CTA strips in dark */
+.dark .from-cyan-100\/70 { --tw-gradient-from: rgba(8, 145, 178, 0.25) !important; }
+.dark .via-blue-100\/50 { --tw-gradient-via: rgba(37, 99, 235, 0.15) !important; }
+.dark .to-transparent { --tw-gradient-to: transparent !important; }
+
+/* Animations stay the same, but reduce motion if requested */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------- Mobile bottom-nav spacing ---------- */
+/* Add bottom padding on mobile so content isn't hidden behind the fixed
+   bottom navigation bar. Only applies below lg (1024px). */
+@media (max-width: 1023px) {
+  footer {
+    padding-bottom: 5rem;
+  }
+  main {
+    padding-bottom: 4rem;
+  }
+}

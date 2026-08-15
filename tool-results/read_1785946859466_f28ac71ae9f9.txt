@@ -1,0 +1,872 @@
+     1→     1→import { useEffect, useMemo, useState } from "react";
+     2→     2→import { motion, AnimatePresence } from "framer-motion";
+     3→     3→import type { Doctor } from "../data";
+     4→     4→import type { Nav } from "../nav";
+     5→     5→import Icon from "../components/Icon";
+     6→     6→
+     7→     7→/* ---------------- helpers ---------------- */
+     8→     8→const DAY_NAMES = [
+     9→     9→  "شنبه",
+    10→    10→  "یکشنبه",
+    11→    11→  "دوشنبه",
+    12→    12→  "سه‌شنبه",
+    13→    13→  "چهارشنبه",
+    14→    14→  "پنجشنبه",
+    15→    15→  "جمعه",
+    16→    16→];
+    17→    17→const TIMES = ["۰۹:۰۰", "۰۹:۳۰", "۱۰:۰۰", "۱۰:۳۰", "۱۱:۰۰", "۱۶:۰۰", "۱۶:۳۰", "۱۷:۰۰", "۱۷:۳۰", "۱۸:۰۰"];
+    18→    18→
+    19→    19→const toFa = (s: string | number) =>
+    20→    20→  String(s).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[+d]);
+    21→    21→const telHref = (phone: string) =>
+    22→    22→  "tel:" + phone.replace(/[^\d]/g, "");
+    23→    23→
+    24→    24→function hashStr(s: string): number {
+    25→    25→  let h = 0;
+    26→    26→  for (let i = 0; i < s.length; i++) {
+    27→    27→    h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    28→    28→  }
+    29→    29→  return h;
+    30→    30→}
+    31→    31→
+    32→    32→type SlotT = { time: string; booked: boolean };
+    33→    33→type DayT = {
+    34→    34→  name: string;
+    35→    35→  date: string;
+    36→    36→  status: "closed" | "full" | "open";
+    37→    37→  slots: SlotT[];
+    38→    38→};
+    39→    39→
+    40→    40→function startSaturday(): Date {
+    41→    41→  const t = new Date();
+    42→    42→  const d = t.getDay(); // 0 Sun .. 6 Sat
+    43→    43→  const add = (6 - d + 7) % 7;
+    44→    44→  const s = new Date(t);
+    45→    45→  s.setDate(t.getDate() + add);
+    46→    46→  return s;
+    47→    47→}
+    48→    48→const fmtDate = (d: Date) =>
+    49→    49→  new Intl.DateTimeFormat("fa-IR", { day: "numeric", month: "long" }).format(d);
+    50→    50→
+    51→    51→function buildSchedule(doctor: Doctor): DayT[] {
+    52→    52→  const start = startSaturday();
+    53→    53→  return DAY_NAMES.map((name, i) => {
+    54→    54→    const date = new Date(start);
+    55→    55→    date.setDate(start.getDate() + i);
+    56→    56→    const dateStr = fmtDate(date);
+    57→    57→    const isFriday = name === "جمعه";
+    58→    58→    const closed = isFriday || hashStr(doctor.name + "closed" + i) % 6 === 0;
+    59→    59→    if (closed) return { name, date: dateStr, status: "closed", slots: [] };
+    60→    60→    const fullDay = hashStr(doctor.name + "full" + i) % 4 === 1;
+    61→    61→    const slots = TIMES.map((time, k) => ({
+    62→    62→      time,
+    63→    63→      booked: fullDay || hashStr(doctor.name + i + time + k) % 3 === 0,
+    64→    64→    }));
+    65→    65→    const status: DayT["status"] = slots.every((s) => s.booked)
+    66→    66→      ? "full"
+    67→    67→      : "open";
+    68→    68→    return { name, date: dateStr, status, slots };
+    69→    69→  });
+    70→    70→}
+    71→    71→
+    72→    72→/* ---------------- stars ---------------- */
+    73→    73→function Stars({ value, className = "h-4 w-4" }: { value: number; className?: string }) {
+    74→    74→  return (
+    75→    75→    <span className="inline-flex">
+    76→    76→      {[0, 1, 2, 3, 4].map((i) => (
+    77→    77→        <Icon
+    78→    78→          key={i}
+    79→    79→          name="star"
+    80→    80→          className={`${className} ${
+    81→    81→            i < Math.round(value)
+    82→    82→              ? "fill-amber-500 text-amber-500"
+    83→    83→              : "fill-slate-200 text-slate-200"
+    84→    84→          }`}
+    85→    85→        />
+    86→    86→      ))}
+    87→    87→    </span>
+    88→    88→  );
+    89→    89→}
+    90→    90→
+    91→    91→/* ---------------- modal shell ---------------- */
+    92→    92→function Modal({
+    93→    93→  children,
+    94→    94→  onClose,
+    95→    95→  dismissable = true,
+    96→    96→}: {
+    97→    97→  children: React.ReactNode;
+    98→    98→  onClose?: () => void;
+    99→    99→  dismissable?: boolean;
+   100→   100→}) {
+   101→   101→  return (
+   102→   102→    <motion.div
+   103→   103→      initial={{ opacity: 0 }}
+   104→   104→      animate={{ opacity: 1 }}
+   105→   105→      exit={{ opacity: 0 }}
+   106→   106→      onClick={dismissable ? onClose : undefined}
+   107→   107→      className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm"
+   108→   108→    >
+   109→   109→      <motion.div
+   110→   110→        initial={{ opacity: 0, scale: 0.94, y: 16 }}
+   111→   111→        animate={{ opacity: 1, scale: 1, y: 0 }}
+   112→   112→        exit={{ opacity: 0, scale: 0.96, y: 10 }}
+   113→   113→        transition={{ type: "spring", stiffness: 240, damping: 22 }}
+   114→   114→        onClick={(e) => e.stopPropagation()}
+   115→   115→        className="glass relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl p-6 shadow-2xl"
+   116→   116→      >
+   117→   117→        {children}
+   118→   118→      </motion.div>
+   119→   119→    </motion.div>
+   120→   120→  );
+   121→   121→}
+   122→   122→
+   123→   123→/* ---------------- booking modal ---------------- */
+   124→   124→function BookingModal({
+   125→   125→  doctor,
+   126→   126→  dayName,
+   127→   127→  date,
+   128→   128→  slot,
+   129→   129→  onBooked,
+   130→   130→  onClose,
+   131→   131→}: {
+   132→   132→  doctor: Doctor;
+   133→   133→  dayName: string;
+   134→   134→  date: string;
+   135→   135→  slot: string;
+   136→   136→  onBooked: () => void;
+   137→   137→  onClose: () => void;
+   138→   138→}) {
+   139→   139→  const [name, setName] = useState("");
+   140→   140→  const [phone, setPhone] = useState("");
+   141→   141→  const [insurance, setInsurance] = useState("بیمه پایه");
+   142→   142→  const [desc, setDesc] = useState("");
+   143→   143→  const [err, setErr] = useState("");
+   144→   144→  const [step, setStep] = useState<"form" | "pay" | "done">("form");
+   145→   145→
+   146→   146→  useEffect(() => {
+   147→   147→    if (step === "done") onBooked();
+   148→   148→    // eslint-disable-next-line react-hooks/exhaustive-deps
+   149→   149→  }, [step]);
+   150→   150→
+   151→   151→  const pay = () => {
+   152→   152→    if (!name.trim() || phone.replace(/\D/g, "").length < 10) {
+   153→   153→      setErr("لطفاً نام و شماره تماس معتبر وارد کنید.");
+   154→   154→      return;
+   155→   155→    }
+   156→   156→    setErr("");
+   157→   157→    setStep("pay");
+   158→   158→    setTimeout(() => setStep("done"), 1700);
+   159→   159→  };
+   160→   160→
+   161→   161→  return (
+   162→   162→    <Modal onClose={onClose} dismissable={step !== "pay"}>
+   163→   163→      {step === "done" ? (
+   164→   164→        <div className="flex flex-col items-center py-4 text-center">
+   165→   165→          <motion.div
+   166→   166→            initial={{ scale: 0, rotate: -20 }}
+   167→   167→            animate={{ scale: 1, rotate: 0 }}
+   168→   168→            transition={{ type: "spring", stiffness: 200, damping: 12 }}
+   169→   169→            className="grid h-16 w-16 place-items-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 shadow-xl shadow-emerald-500/40"
+   170→   170→          >
+   171→   171→            <Icon name="check" className="h-8 w-8 text-white" />
+   172→   172→          </motion.div>
+   173→   173→          <h3 className="mt-4 text-xl font-black text-slate-900">
+   174→   174→            پرداخت موفق و نوبت ثبت شد!
+   175→   175→          </h3>
+   176→   176→          <p className="mt-2 text-sm text-slate-600">
+   177→   177→            نوبت شما با {doctor.name} برای روز {dayName} ({date}) ساعت{" "}
+   178→   178→            <span className="font-bold text-cyan-700">{slot}</span> رزرو شد.
+   179→   179→          </p>
+   180→   180→          <div className="mt-3 rounded-lg border border-dashed border-cyan-300 bg-cyan-50 px-5 py-1.5 text-base font-black tracking-widest text-cyan-700">
+   181→   181→            کد رهگیری: {toFa(48213)}
+   182→   182→          </div>
+   183→   183→          <button
+   184→   184→            onClick={onClose}
+   185→   185→            data-cursor="hover"
+   186→   186→            className="mt-5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-6 py-2.5 text-sm font-bold text-white"
+   187→   187→          >
+   188→   188→            بستن
+   189→   189→          </button>
+   190→   190→        </div>
+   191→   191→      ) : step === "pay" ? (
+   192→   192→        <div className="flex flex-col items-center py-10 text-center">
+   193→   193→          <div className="h-12 w-12 animate-spin rounded-full border-4 border-cyan-200 border-t-cyan-600" />
+   194→   194→          <p className="mt-5 font-bold text-slate-700">در حال انجام پرداخت…</p>
+   195→   195→          <p className="mt-1 text-xs text-slate-400">لطفاً صبر کنید</p>
+   196→   196→        </div>
+   197→   197→      ) : (
+   198→   198→        <>
+   199→   199→          <div className="flex items-center justify-between">
+   200→   200→            <h3 className="text-lg font-black text-slate-900">تکمیل رزرو نوبت</h3>
+   201→   201→            <button
+   202→   202→              onClick={onClose}
+   203→   203→              data-cursor="hover"
+   204→   204→              className="grid h-8 w-8 place-items-center rounded-lg bg-white/70 text-slate-500"
+   205→   205→              aria-label="بستن"
+   206→   206→            >
+   207→   207→              <Icon name="close" className="h-4 w-4" />
+   208→   208→            </button>
+   209→   209→          </div>
+   210→   210→
+   211→   211→          <div className="mt-3 rounded-2xl bg-cyan-50/70 p-3 text-sm text-slate-700">
+   212→   212→            <div className="flex items-center justify-between">
+   213→   213→              <span className="font-bold">{doctor.name}</span>
+   214→   214→              <span className="text-cyan-700">{doctor.specialty}</span>
+   215→   215→            </div>
+   216→   216→            <div className="mt-1 flex items-center justify-between text-xs text-slate-500">
+   217→   217→              <span>
+   218→   218→                {dayName} · {date}
+   219→   219→              </span>
+   220→   220→              <span className="font-bold text-slate-700">ساعت {slot}</span>
+   221→   221→            </div>
+   222→   222→          </div>
+   223→   223→
+   224→   224→          <div className="mt-4 space-y-3">
+   225→   225→            <div>
+   226→   226→              <label className="mb-1 block text-xs font-medium text-slate-600">
+   227→   227→                نام و نام خانوادگی بیمار
+   228→   228→              </label>
+   229→   229→              <input
+   230→   230→                value={name}
+   231→   231→                onChange={(e) => setName(e.target.value)}
+   232→   232→                placeholder="مثلاً نگار حسینی"
+   233→   233→                className="input"
+   234→   234→                data-cursor="text"
+   235→   235→              />
+   236→   236→            </div>
+   237→   237→            <div className="grid grid-cols-2 gap-3">
+   238→   238→              <div>
+   239→   239→                <label className="mb-1 block text-xs font-medium text-slate-600">
+   240→   240→                  شماره تماس
+   241→   241→                </label>
+   242→   242→                <input
+   243→   243→                  value={phone}
+   244→   244→                  onChange={(e) => setPhone(e.target.value)}
+   245→   245→                  inputMode="tel"
+   246→   246→                  placeholder="۰۹۱۲۳۴۵۶۷۸۹"
+   247→   247→                  className="input"
+   248→   248→                  data-cursor="text"
+   249→   249→                />
+   250→   250→              </div>
+   251→   251→              <div>
+   252→   252→                <label className="mb-1 block text-xs font-medium text-slate-600">
+   253→   253→                  نوع بیمه
+   254→   254→                </label>
+   255→   255→                <select
+   256→   256→                  value={insurance}
+   257→   257→                  onChange={(e) => setInsurance(e.target.value)}
+   258→   258→                  className="input appearance-none"
+   259→   259→                >
+   260→   260→                  <option className="bg-white">بیمه پایه</option>
+   261→   261→                  <option className="bg-white">بیمه تکمیلی</option>
+   262→   262→                  <option className="bg-white">آزاد / بدون بیمه</option>
+   263→   263→                </select>
+   264→   264→              </div>
+   265→   265→            </div>
+   266→   266→            <div>
+   267→   267→              <label className="mb-1 block text-xs font-medium text-slate-600">
+   268→   268→                شرح مختصر علائم
+   269→   269→              </label>
+   270→   270→              <textarea
+   271→   271→                value={desc}
+   272→   272→                onChange={(e) => setDesc(e.target.value)}
+   273→   273→                rows={3}
+   274→   274→                placeholder="علائم و دلیل مراجعه را مختصر بنویسید…"
+   275→   275→                className="input resize-none"
+   276→   276→                data-cursor="text"
+   277→   277→              />
+   278→   278→            </div>
+   279→   279→          </div>
+   280→   280→
+   281→   281→          {err && (
+   282→   282→            <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-600">
+   283→   283→              {err}
+   284→   284→            </p>
+   285→   285→          )}
+   286→   286→
+   287→   287→          <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4">
+   288→   288→            <span className="text-sm text-slate-500">
+   289→   289→              مبلغ قابل پرداخت:{" "}
+   290→   290→              <span className="text-base font-black text-slate-900">
+   291→   291→                {toFa(doctor.fee.toLocaleString("fa-IR"))}
+   292→   292→              </span>{" "}
+   293→   293→              تومان
+   294→   294→            </span>
+   295→   295→            <button
+   296→   296→              onClick={pay}
+   297→   297→              data-cursor="hover"
+   298→   298→              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-cyan-500/30"
+   299→   299→            >
+   300→   300→              <Icon name="check" className="h-4 w-4" />
+   301→   301→              پرداخت و ثبت نوبت
+   302→   302→            </button>
+   303→   303→          </div>
+   304→   304→        </>
+   305→   305→      )}
+   306→   306→    </Modal>
+   307→   307→  );
+   308→   308→}
+   309→   309→
+   310→   310→/* ---------------- main page ---------------- */
+   311→   311→export default function DoctorProfile({
+   312→   312→  doctor,
+   313→   313→  navigate,
+   314→   314→}: {
+   315→   315→  doctor: Doctor;
+   316→   316→  navigate: Nav;
+   317→   317→}) {
+   318→   318→  const [schedule, setSchedule] = useState<DayT[]>(() => buildSchedule(doctor));
+   319→   319→  const [selectedDay, setSelectedDay] = useState<number>(() => {
+   320→   320→    const idx = schedule.findIndex((d) => d.status === "open");
+   321→   321→    return idx >= 0 ? idx : 0;
+   322→   322→  });
+   323→   323→  const [booking, setBooking] = useState<{ day: number; slot: string } | null>(null);
+   324→   324→  const [lightbox, setLightbox] = useState<number | null>(null);
+   325→   325→  const [liveOpen, setLiveOpen] = useState(false);
+   326→   326→
+   327→   327→  // reviews
+   328→   328→  const seedReviews = useMemo(
+   329→   329→    () => [
+   330→   330→      { name: "نگار حسینی", rating: 5, date: "۲ هفته پیش", text: "خیلی صبور و دقیق. نوبت‌دهی آنلاین عالی بود و سر وقت ویزیت شدم." },
+   331→   331→      { name: "محمد رستمی", rating: 5, date: "۱ ماه پیش", text: "پزشک متخصص و خوش‌برخوردی بود؛ تشخیص دقیق و توضیحات کامل دادند." },
+   332→   332→      { name: "زهرا کاظمی", rating: 4, date: "۱ ماه پیش", text: "کیفیت ویزیت خوب بود، فقط کمی منتظر ماندم. در کل راضی‌ام." },
+   333→   333→      { name: "سینا ملکی", rating: 5, date: "۲ ماه پیش", text: "از طریق سایت به‌راحتی نوبت گرفتم. مطب تمیز و منظم است." },
+   334→   334→    ],
+   335→   335→    // eslint-disable-next-line react-hooks/exhaustive-deps
+   336→   336→    []
+   337→   337→  );
+   338→   338→  const [reviews, setReviews] = useState(seedReviews);
+   339→   339→  const [rName, setRName] = useState("");
+   340→   340→  const [rRating, setRRating] = useState(5);
+   341→   341→  const [rText, setRText] = useState("");
+   342→   342→
+   343→   343→  const dist = useMemo(() => {
+   344→   344→    return [5, 4, 3, 2, 1].map((s) => reviews.filter((r) => r.rating === s).length);
+   345→   345→  }, [reviews]);
+   346→   346→
+   347→   347→  const submitReview = () => {
+   348→   348→    if (!rName.trim() || !rText.trim()) return;
+   349→   349→    setReviews((prev) => [
+   350→   350→      { name: rName.trim(), rating: rRating, date: "هم‌اکنون", text: rText.trim() },
+   351→   351→      ...prev,
+   352→   352→    ]);
+   353→   353→    setRName("");
+   354→   354→    setRText("");
+   355→   355→    setRRating(5);
+   356→   356→  };
+   357→   357→
+   358→   358→  const confirmBooking = () => {
+   359→   359→    if (!booking) return;
+   360→   360→    const { day, slot } = booking;
+   361→   361→    setSchedule((prev) =>
+   362→   362→      prev.map((d, i) => {
+   363→   363→        if (i !== day) return d;
+   364→   364→        const slots = d.slots.map((s) =>
+   365→   365→          s.time === slot ? { ...s, booked: true } : s
+   366→   366→        );
+   367→   367→        const status: DayT["status"] = slots.every((s) => s.booked)
+   368→   368→          ? "full"
+   369→   369→          : "open";
+   370→   370→        return { ...d, slots, status };
+   371→   371→      })
+   372→   372→    );
+   373→   373→  };
+   374→   374→
+   375→   375→  const mapSrc = `https://www.openstreetmap.org/export/embed.html?bbox=${doctor.lng - 0.012}%2C${
+   376→   376→    doctor.lat - 0.01
+   377→   377→  }%2C${doctor.lng + 0.012}%2C${doctor.lat + 0.01}&layer=mapnik&marker=${doctor.lat}%2C${doctor.lng}`;
+   378→   378→
+   379→   379→  return (
+   380→   380→    <div className="min-h-screen pb-16 pt-28">
+   381→   381→      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+   382→   382→        <button
+   383→   383→          onClick={() => navigate("doctors")}
+   384→   384→          data-cursor="hover"
+   385→   385→          className="mb-5 inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/70 px-4 py-1.5 text-sm font-medium text-slate-600 backdrop-blur transition hover:border-cyan-300 hover:text-cyan-700"
+   386→   386→        >
+   387→   387→          <Icon name="arrow" className="h-4 w-4 rotate-180" />
+   388→   388→          بازگشت به لیست پزشکان
+   389→   389→        </button>
+   390→   390→
+   391→   391→        {/* ---------- Header ---------- */}
+   392→   392→        <div className="relative overflow-hidden rounded-3xl glass p-6 sm:p-8">
+   393→   393→          <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-cyan-200/30 blur-3xl" />
+   394→   394→          <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center">
+   395→   395→            <img
+   396→   396→              src={doctor.photo}
+   397→   397→              alt={doctor.name}
+   398→   398→              className="h-32 w-32 rounded-3xl object-cover object-top shadow-lg ring-4 ring-white sm:h-40 sm:w-40"
+   399→   399→            />
+   400→   400→            <div className="flex-1">
+   401→   401→              <span className="inline-block rounded-full bg-cyan-50 px-3 py-1 text-xs font-bold text-cyan-700">
+   402→   402→                {doctor.specialty}
+   403→   403→              </span>
+   404→   404→              <h1 className="mt-2 text-3xl font-black text-slate-900 sm:text-4xl">
+   405→   405→                {doctor.name}
+   406→   406→              </h1>
+   407→   407→              <div className="mt-2 flex flex-wrap items-center gap-3">
+   408→   408→                <span className="flex items-center gap-1.5">
+   409→   409→                  <Stars value={doctor.rating} className="h-5 w-5" />
+   410→   410→                  <span className="font-bold text-slate-800">
+   411→   411→                    {toFa(doctor.rating.toLocaleString("fa-IR"))}
+   412→   412→                  </span>
+   413→   413→                  <span className="text-sm text-slate-500">
+   414→   414→                    از ۵
+   415→   415→                  </span>
+   416→   416→                </span>
+   417→   417→                <span className="text-sm text-slate-400">
+   418→   418→                  ({toFa(doctor.reviews.toLocaleString("fa-IR"))} نظر)
+   419→   419→                </span>
+   420→   420→              </div>
+   421→   421→              <div className="mt-3 flex flex-wrap gap-2 text-xs">
+   422→   422→                <span className="flex items-center gap-1.5 rounded-lg bg-white/70 px-2.5 py-1.5 font-medium text-slate-600">
+   423→   423→                  <Icon name="stethoscope" className="h-4 w-4 text-cyan-600" />
+   424→   424→                  {toFa(doctor.experience)} سال تجربه
+   425→   425→                </span>
+   426→   426→                <span className="flex items-center gap-1.5 rounded-lg bg-white/70 px-2.5 py-1.5 font-medium text-slate-600">
+   427→   427→                  <Icon name="location" className="h-4 w-4 text-cyan-600" />
+   428→   428→                  {doctor.location}
+   429→   429→                </span>
+   430→   430→                <span className="flex items-center gap-1.5 rounded-lg bg-white/70 px-2.5 py-1.5 font-medium text-slate-600">
+   431→   431→                  ویزیت: {toFa(doctor.fee.toLocaleString("fa-IR"))} ت
+   432→   432→                </span>
+   433→   433→              </div>
+   434→   434→              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-600">
+   435→   435→                {doctor.about}
+   436→   436→              </p>
+   437→   437→              <div className="mt-4 flex flex-wrap gap-3">
+   438→   438→                <a
+   439→   439→                  href={telHref(doctor.phone)}
+   440→   440→                  data-cursor="hover"
+   441→   441→                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-cyan-500/30"
+   442→   442→                >
+   443→   443→                  <Icon name="phone" className="h-4 w-4" />
+   444→   444→                  تماس با مطب
+   445→   445→                </a>
+   446→   446→                <button
+   447→   447→                  onClick={() => setLiveOpen(true)}
+   448→   448→                  data-cursor="hover"
+   449→   449→                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white/70 px-5 py-2.5 text-sm font-bold text-slate-700 backdrop-blur transition hover:border-cyan-400 hover:text-cyan-700"
+   450→   450→                >
+   451→   451→                  <span className="relative flex h-2.5 w-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" /></span>
+   452→   452→                  مشاهده وضعیت آنلاین مطب
+   453→   453→                </button>
+   454→   454→              </div>
+   455→   455→            </div>
+   456→   456→          </div>
+   457→   457→        </div>
+   458→   458→
+   459→   459→        {/* ---------- Contact + Map + Gallery ---------- */}
+   460→   460→        <div className="mt-6 grid gap-6 lg:grid-cols-3">
+   461→   461→          <div className="space-y-4">
+   462→   462→            <div className="rounded-3xl glass p-5">
+   463→   463→              <h3 className="mb-3 flex items-center gap-2 font-bold text-slate-900">
+   464→   464→                <Icon name="phone" className="h-5 w-5 text-cyan-600" />
+   465→   465→                شماره تماس مطب
+   466→   466→              </h3>
+   467→   467→              <a
+   468→   468→                href={telHref(doctor.phone)}
+   469→   469→                data-cursor="hover"
+   470→   470→                className="text-lg font-black tracking-wide text-cyan-700"
+   471→   471→              >
+   472→   472→                {toFa(doctor.phone)}
+   473→   473→              </a>
+   474→   474→            </div>
+   475→   475→            <div className="rounded-3xl glass p-5">
+   476→   476→              <h3 className="mb-3 flex items-center gap-2 font-bold text-slate-900">
+   477→   477→                <Icon name="location" className="h-5 w-5 text-cyan-600" />
+   478→   478→                آدرس مطب
+   479→   479→              </h3>
+   480→   480→              <p className="text-sm leading-relaxed text-slate-600">
+   481→   481→                {doctor.address}
+   482→   482→              </p>
+   483→   483→            </div>
+   484→   484→          </div>
+   485→   485→
+   486→   486→          {/* map with corner gallery */}
+   487→   487→          <div className="lg:col-span-2">
+   488→   488→            <div className="relative overflow-hidden rounded-3xl glass p-2">
+   489→   489→              <iframe
+   490→   490→                title="نقشه مطب"
+   491→   491→                src={mapSrc}
+   492→   492→                className="h-72 w-full rounded-2xl border-0 sm:h-80"
+   493→   493→                loading="lazy"
+   494→   494→              />
+   495→   495→              {/* small gallery in the corner */}
+   496→   496→              <div className="absolute bottom-4 left-4 w-40 rounded-2xl bg-white/85 p-2 shadow-lg backdrop-blur">
+   497→   497→                <div className="mb-1.5 px-1 text-[11px] font-bold text-slate-600">
+   498→   498→                  عکس‌های مطب
+   499→   499→                </div>
+   500→   500→                <div className="grid grid-cols-2 gap-1.5">
+   501→   501→                  {doctor.gallery.slice(0, 4).map((g, i) => (
+   502→   502→                    <button
+   503→   503→                      key={i}
+   504→   504→                      onClick={() => setLightbox(i)}
+   505→   505→                      data-cursor="hover"
+   506→   506→                      className="overflow-hidden rounded-lg"
+   507→   507→                    >
+   508→   508→                      <img
+   509→   509→                        src={g}
+   510→   510→                        alt={`مطب ${i + 1}`}
+   511→   511→                        loading="lazy"
+   512→   512→                        className="h-14 w-full object-cover transition hover:scale-110"
+   513→   513→                      />
+   514→   514→                    </button>
+   515→   515→                  ))}
+   516→   516→                </div>
+   517→   517→              </div>
+   518→   518→            </div>
+   519→   519→          </div>
+   520→   520→        </div>
+   521→   521→
+   522→   522→        {/* ---------- Weekly schedule ---------- */}
+   523→   523→        <div className="mt-10">
+   524→   524→          <h2 className="text-2xl font-black text-slate-900">نوبت‌های هفته</h2>
+   525→   525→          <p className="mt-1 text-sm text-slate-500">
+   526→   526→            روز موردنظر را برای دیدن بازه‌های خالی انتخاب کنید.
+   527→   527→          </p>
+   528→   528→
+   529→   529→          {/* legend */}
+   530→   530→          <div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-500">
+   531→   531→            <span className="flex items-center gap-1.5">
+   532→   532→              <span className="h-3 w-3 rounded bg-emerald-400" /> بازه خالی
+   533→   533→            </span>
+   534→   534→            <span className="flex items-center gap-1.5">
+   535→   535→              <span className="h-3 w-3 rounded bg-rose-300" /> تکمیل شده
+   536→   536→            </span>
+   537→   537→            <span className="flex items-center gap-1.5">
+   538→   538→              <span className="h-3 w-3 rounded bg-slate-300" /> تعطیل
+   539→   539→            </span>
+   540→   540→          </div>
+   541→   541→
+   542→   542→          {/* day chips */}
+   543→   543→          <div className="no-scrollbar mt-4 flex gap-3 overflow-x-auto pb-2">
+   544→   544→            {schedule.map((d, i) => {
+   545→   545→              const disabled = d.status !== "open";
+   546→   546→              const selected = i === selectedDay;
+   547→   547→              return (
+   548→   548→                <button
+   549→   549→                  key={i}
+   550→   550→                  disabled={disabled}
+   551→   551→                  onClick={() => !disabled && setSelectedDay(i)}
+   552→   552→                  data-cursor={disabled ? undefined : "hover"}
+   553→   553→                  className={`relative flex w-24 shrink-0 flex-col items-center rounded-2xl border px-3 py-3 transition ${
+   554→   554→                    d.status === "closed"
+   555→   555→                      ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
+   556→   556→                      : d.status === "full"
+   557→   557→                      ? "cursor-not-allowed border-rose-200 bg-rose-50 text-rose-400"
+   558→   558→                      : selected
+   559→   559→                      ? "border-transparent bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/30"
+   560→   560→                      : "border-slate-200 bg-white text-slate-700 hover:border-cyan-300"
+   561→   561→                  }`}
+   562→   562→                >
+   563→   563→                  <span className="text-sm font-bold">{d.name}</span>
+   564→   564→                  <span
+   565→   565→                    className={`mt-0.5 text-[11px] ${
+   566→   566→                      selected ? "text-cyan-50" : "opacity-70"
+   567→   567→                    }`}
+   568→   568→                  >
+   569→   569→                    {d.date}
+   570→   570→                  </span>
+   571→   571→                  <span className="mt-1.5 text-[10px] font-semibold">
+   572→   572→                    {d.status === "closed"
+   573→   573→                      ? "تعطیل"
+   574→   574→                      : d.status === "full"
+   575→   575→                      ? "تکمیل"
+   576→   576→                      : "آزاد"}
+   577→   577→                  </span>
+   578→   578→                </button>
+   579→   579→              );
+   580→   580→            })}
+   581→   581→          </div>
+   582→   582→
+   583→   583→          {/* slots for selected day */}
+   584→   584→          <div className="mt-5 rounded-3xl glass p-5">
+   585→   585→            <div className="mb-4 flex items-center justify-between">
+   586→   586→              <h3 className="font-bold text-slate-900">
+   587→   587→                بازه‌های {schedule[selectedDay].name} — {schedule[selectedDay].date}
+   588→   588→              </h3>
+   589→   589→              <span className="text-xs text-slate-500">
+   590→   590→                {schedule[selectedDay].slots.filter((s) => !s.booked).length} بازه
+   591→   591→                آزاد
+   592→   592→              </span>
+   593→   593→            </div>
+   594→   594→
+   595→   595→            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+   596→   596→              {schedule[selectedDay].slots.map((s) => (
+   597→   597→                <button
+   598→   598→                  key={s.time}
+   599→   599→                  disabled={s.booked}
+   600→   600→                  onClick={() => !s.booked && setBooking({ day: selectedDay, slot: s.time })}
+   601→   601→                  data-cursor={s.booked ? undefined : "hover"}
+   602→   602→                  className={`flex flex-col items-center rounded-xl border py-3 text-sm font-bold transition ${
+   603→   603→                    s.booked
+   604→   604→                      ? "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400 line-through"
+   605→   605→                      : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:scale-[1.04] hover:bg-emerald-100"
+   606→   606→                  }`}
+   607→   607→                >
+   608→   608→                  {toFa(s.time)}
+   609→   609→                  <span className="mt-0.5 text-[10px] font-medium">
+   610→   610→                    {s.booked ? "رزرو شده" : "آزاد"}
+   611→   611→                  </span>
+   612→   612→                </button>
+   613→   613→              ))}
+   614→   614→            </div>
+   615→   615→          </div>
+   616→   616→        </div>
+   617→   617→
+   618→   618→        {/* ---------- Reviews ---------- */}
+   619→   619→        <div className="mt-12">
+   620→   620→          <h2 className="text-2xl font-black text-slate-900">نظرات کاربران</h2>
+   621→   621→
+   622→   622→          <div className="mt-5 grid gap-6 lg:grid-cols-3">
+   623→   623→            {/* summary */}
+   624→   624→            <div className="rounded-3xl glass p-6">
+   625→   625→              <div className="text-center">
+   626→   626→                <div className="text-5xl font-black text-slate-900">
+   627→   627→                  {toFa(doctor.rating.toLocaleString("fa-IR"))}
+   628→   628→                </div>
+   629→   629→                <Stars value={doctor.rating} className="mx-auto mt-1 h-5 w-5" />
+   630→   630→                <div className="mt-1 text-xs text-slate-500">
+   631→   631→                  از {toFa(doctor.reviews.toLocaleString("fa-IR"))} نظر
+   632→   632→                </div>
+   633→   633→              </div>
+   634→   634→              <div className="mt-5 space-y-1.5">
+   635→   635→                {[5, 4, 3, 2, 1].map((star, i) => (
+   636→   636→                  <div key={star} className="flex items-center gap-2 text-xs">
+   637→   637→                    <span className="w-3 text-slate-500">{toFa(star)}</span>
+   638→   638→                    <Icon name="star" className="h-3 w-3 fill-amber-500 text-amber-500" />
+   639→   639→                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
+   640→   640→                      <div
+   641→   641→                        className="h-full rounded-full bg-amber-400"
+   642→   642→                        style={{
+   643→   643→                          width: `${(dist[i] / Math.max(1, reviews.length)) * 100}%`,
+   644→   644→                        }}
+   645→   645→                      />
+   646→   646→                    </div>
+   647→   647→                    <span className="w-5 text-left text-slate-400">{toFa(dist[i])}</span>
+   648→   648→                  </div>
+   649→   649→                ))}
+   650→   650→              </div>
+   651→   651→            </div>
+   652→   652→
+   653→   653→            {/* add review */}
+   654→   654→            <div className="rounded-3xl glass p-6 lg:col-span-2">
+   655→   655→              <h3 className="font-bold text-slate-900">ثبت نظر شما</h3>
+   656→   656→              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+   657→   657→                <input
+   658→   658→                  value={rName}
+   659→   659→                  onChange={(e) => setRName(e.target.value)}
+   660→   660→                  placeholder="نام شما"
+   661→   661→                  className="input"
+   662→   662→                  data-cursor="text"
+   663→   663→                />
+   664→   664→                <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white/85 px-3">
+   665→   665→                  {[1, 2, 3, 4, 5].map((s) => (
+   666→   666→                    <button
+   667→   667→                      key={s}
+   668→   668→                      onClick={() => setRRating(s)}
+   669→   669→                      data-cursor="hover"
+   670→   670→                      aria-label={`${s} ستاره`}
+   671→   671→                    >
+   672→   672→                      <Icon
+   673→   673→                        name="star"
+   674→   674→                        className={`h-6 w-6 ${
+   675→   675→                          s <= rRating
+   676→   676→                            ? "fill-amber-500 text-amber-500"
+   677→   677→                            : "fill-slate-200 text-slate-200"
+   678→   678→                        }`}
+   679→   679→                      />
+   680→   680→                    </button>
+   681→   681→                  ))}
+   682→   682→                </div>
+   683→   683→              </div>
+   684→   684→              <textarea
+   685→   685→                value={rText}
+   686→   686→                onChange={(e) => setRText(e.target.value)}
+   687→   687→                rows={3}
+   688→   688→                placeholder="تجربه خود را بنویسید…"
+   689→   689→                className="input mt-3 resize-none"
+   690→   690→                data-cursor="text"
+   691→   691→              />
+   692→   692→              <button
+   693→   693→                onClick={submitReview}
+   694→   694→                data-cursor="hover"
+   695→   695→                className="mt-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-cyan-500/30"
+   696→   696→              >
+   697→   697→                ارسال نظر
+   698→   698→              </button>
+   699→   699→
+   700→   700→              {/* review list */}
+   701→   701→              <div className="mt-5 space-y-3">
+   702→   702→                {reviews.map((r, i) => (
+   703→   703→                  <div key={i} className="rounded-2xl border border-slate-100 bg-white/60 p-4">
+   704→   704→                    <div className="flex items-center justify-between">
+   705→   705→                      <div className="flex items-center gap-2.5">
+   706→   706→                        <span className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 text-sm font-bold text-white">
+   707→   707→                          {r.name.charAt(0)}
+   708→   708→                        </span>
+   709→   709→                        <div>
+   710→   710→                          <div className="text-sm font-bold text-slate-800">{r.name}</div>
+   711→   711→                          <div className="text-[11px] text-slate-400">{r.date}</div>
+   712→   712→                        </div>
+   713→   713→                      </div>
+   714→   714→                      <Stars value={r.rating} className="h-3.5 w-3.5" />
+   715→   715→                    </div>
+   716→   716→                    <p className="mt-2 text-sm leading-relaxed text-slate-600">{r.text}</p>
+   717→   717→                  </div>
+   718→   718→                ))}
+   719→   719→              </div>
+   720→   720→            </div>
+   721→   721→          </div>
+   722→   722→        </div>
+   723→   723→      </div>
+   724→   724→
+   725→   725→      {/* ---------- booking modal ---------- */}
+   726→   726→      <AnimatePresence>
+   727→   727→        {booking && (
+   728→   728→          <BookingModal
+   729→   729→            doctor={doctor}
+   730→   730→            dayName={schedule[booking.day].name}
+   731→   731→            date={schedule[booking.day].date}
+   732→   732→            slot={booking.slot}
+   733→   733→            onBooked={confirmBooking}
+   734→   734→            onClose={() => setBooking(null)}
+   735→   735→          />
+   736→   736→        )}
+   737→   737→      </AnimatePresence>
+   738→   738→
+   739→   739→      {/* ---------- live clinic status ---------- */}
+   740→   740→      <AnimatePresence>
+   741→   741→        {liveOpen && <LiveClinicModal doctor={doctor} onClose={() => setLiveOpen(false)} />}
+   742→   742→      </AnimatePresence>
+   743→   743→
+   744→   744→      {/* ---------- gallery lightbox ---------- */}
+   745→   745→      <AnimatePresence>
+   746→   746→        {lightbox !== null && (
+   747→   747→          <Modal onClose={() => setLightbox(null)}>
+   748→   748→            <button
+   749→   749→              onClick={() => setLightbox(null)}
+   750→   750→              data-cursor="hover"
+   751→   751→              className="absolute left-4 top-4 z-10 grid h-9 w-9 place-items-center rounded-full bg-white/80 text-slate-600"
+   752→   752→              aria-label="بستن"
+   753→   753→            >
+   754→   754→              <Icon name="close" className="h-5 w-5" />
+   755→   755→            </button>
+   756→   756→            <img
+   757→   757→              src={doctor.gallery[lightbox]}
+   758→   758→              alt="عکس مطب"
+   759→   759→              className="w-full rounded-2xl object-cover"
+   760→   760→            />
+   761→   761→            <div className="mt-3 flex justify-center gap-2">
+   762→   762→              {doctor.gallery.map((_, i) => (
+   763→   763→                <button
+   764→   764→                  key={i}
+   765→   765→                  onClick={() => setLightbox(i)}
+   766→   766→                  data-cursor="hover"
+   767→   767→                  className={`h-2.5 w-2.5 rounded-full transition ${
+   768→   768→                    i === lightbox ? "bg-cyan-600" : "bg-slate-300"
+   769→   769→                  }`}
+   770→   770→                />
+   771→   771→              ))}
+   772→   772→            </div>
+   773→   773→          </Modal>
+   774→   774→        )}
+   775→   775→      </AnimatePresence>
+   776→   776→    </div>
+   777→   777→  );
+   778→   778→}
+   779→   779→
+   780→   780→/* ---------------- live clinic status (patient view) ---------------- */
+   781→   781→type QItem = { id: number; name: string; status: "in" | "waiting" | "done"; you?: boolean };
+   782→   782→function LiveClinicModal({ doctor, onClose }: { doctor: Doctor; onClose: () => void }) {
+   783→   783→  const AVG = 7; // میانگین دقیقه‌ی هر ویزیت
+   784→   784→  const [queue, setQueue] = useState<QItem[]>([
+   785→   785→    { id: 1, name: "نگار حسینی", status: "in" },
+   786→   786→    { id: 2, name: "محمد رستمی", status: "waiting" },
+   787→   787→    { id: 3, name: "زهرا کاظمی", status: "waiting" },
+   788→   788→    { id: 4, name: "شما", status: "waiting", you: true },
+   789→   789→    { id: 5, name: "سینا ملکی", status: "waiting" },
+   790→   790→  ]);
+   791→   791→  const [secLeft, setSecLeft] = useState(AVG * 60);
+   792→   792→
+   793→   793→  useEffect(() => {
+   794→   794→    const t = setInterval(() => setSecLeft((s) => (s > 0 ? s - 1 : 0)), 1000);
+   795→   795→    return () => clearInterval(t);
+   796→   796→  }, []);
+   797→   797→  useEffect(() => {
+   798→   798→    if (secLeft === 0) {
+   799→   799→      setQueue((q) => {
+   800→   800→        const nq = q.map((x) => (x.status === "in" ? { ...x, status: "done" as const } : x));
+   801→   801→        const i = nq.findIndex((x) => x.status === "waiting");
+   802→   802→        if (i >= 0) nq[i] = { ...nq[i], status: "in" as const };
+   803→   803→        return nq;
+   804→   804→      });
+   805→   805→      setSecLeft(AVG * 60);
+   806→   806→    }
+   807→   807→  }, [secLeft]);
+   808→   808→
+   809→   809→  const current = queue.find((q) => q.status === "in");
+   810→   810→  const waiting = queue.filter((q) => q.status === "waiting");
+   811→   811→  const you = queue.find((q) => q.you);
+   812→   812→  const ahead = you ? waiting.indexOf(you) : 0;
+   813→   813→  const estMin = Math.max(1, ahead * AVG + Math.ceil(secLeft / 60));
+   814→   814→  const mm = String(Math.floor(secLeft / 60)).padStart(2, "0");
+   815→   815→  const ss = String(secLeft % 60).padStart(2, "0");
+   816→   816→
+   817→   817→  return (
+   818→   818→    <Modal onClose={onClose}>
+   819→   819→      <button onClick={onClose} data-cursor="hover" className="absolute left-4 top-4 z-10 grid h-9 w-9 place-items-center rounded-full bg-white/80 text-slate-600" aria-label="بستن"><Icon name="close" className="h-5 w-5" /></button>
+   820→   820→
+   821→   821→      {/* header */}
+   822→   822→      <div className="overflow-hidden rounded-2xl bg-gradient-to-l from-cyan-600 to-blue-700 p-4 text-white">
+   823→   823→        <div className="flex items-center justify-between">
+   824→   824→          <div><div className="text-[11px] text-cyan-50">{doctor.location}</div><div className="text-lg font-black">وضعیت زنده‌ی مطب</div></div>
+   825→   825→          <span className="flex items-center gap-1.5 rounded-lg bg-white/15 px-2.5 py-1.5 text-[11px] font-bold"><span className="h-2 w-2 animate-pulse rounded-full bg-emerald-300" />در حال پذیرش</span>
+   826→   826→        </div>
+   827→   827→        <div className="mt-2 flex items-center gap-4 text-sm">
+   828→   828→          <span>{toFa(waiting.length)} نفر در انتظار</span>
+   829→   829→          <span className="text-cyan-50">•</span>
+   830→   830→          <span>میانگین ویزیت {toFa(AVG)} دقیقه</span>
+   831→   831→        </div>
+   832→   832→      </div>
+   833→   833→
+   834→   834→      {/* current in room */}
+   835→   835→      <div className="mt-4 rounded-2xl border-2 border-cyan-500 bg-cyan-50 p-4">
+   836→   836→        <div className="mb-1 text-[11px] font-bold text-cyan-700">🔴 داخل اتاق دکتر</div>
+   837→   837→        {current ? (
+   838→   838→          <div className="flex items-center justify-between gap-2">
+   839→   839→            <div className="text-lg font-black text-slate-900">{current.name}</div>
+   840→   840→            <div className="flex items-center gap-2 rounded-xl bg-white px-3 py-1.5 text-sm font-black tabular-nums text-cyan-700"><Icon name="clock" className="h-4 w-4" />{toFa(mm)}:{toFa(ss)}</div>
+   841→   841→          </div>
+   842→   842→        ) : <div className="text-sm text-slate-500">در حال حاضر بیماری داخل نیست.</div>}
+   843→   843→      </div>
+   844→   844→
+   845→   845→      {/* your position */}
+   846→   846→      {you && (
+   847→   847→        <div className="mt-3 rounded-2xl bg-gradient-to-l from-emerald-50 to-teal-50 p-4 text-center">
+   848→   848→          <div className="text-[11px] font-bold text-emerald-700">جایگاه شما در صف</div>
+   849→   849→          <div className="mt-1 text-3xl font-black text-slate-900">نفر {toFa(ahead + 1)}</div>
+   850→   850→          <div className="mt-1 flex items-center justify-center gap-1.5 text-sm font-bold text-emerald-700"><Icon name="clock" className="h-4 w-4" />حدود {toFa(estMin)} دقیقه تا نوبت شما</div>
+   851→   851→        </div>
+   852→   852→      )}
+   853→   853→
+   854→   854→      {/* queue list */}
+   855→   855→      <div className="mt-4">
+   856→   856→        <div className="mb-2 text-xs font-bold text-slate-500">صف انتظار</div>
+   857→   857→        <div className="space-y-2">
+   858→   858→          {waiting.map((p, i) => (
+   859→   859→            <div key={p.id} className={`flex items-center gap-3 rounded-xl border p-2.5 ${p.you ? "border-emerald-400 bg-emerald-50" : "border-slate-100 bg-white/60"}`}>
+   860→   860→              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-600">{toFa(i + 2)}</span>
+   861→   861→              <span className={`flex-1 text-sm font-bold ${p.you ? "text-emerald-700" : "text-slate-700"}`}>{p.name}{p.you && " (شما)"}</span>
+   862→   862→              {i === 0 && <span className="text-[10px] font-bold text-amber-600">بعدی</span>}
+   863→   863→            </div>
+   864→   864→          ))}
+   865→   865→          {waiting.length === 0 && <p className="rounded-xl bg-slate-50 p-3 text-center text-sm text-slate-400">صف خالی است.</p>}
+   866→   866→        </div>
+   867→   867→      </div>
+   868→   868→      <p className="mt-3 text-center text-[11px] text-slate-400">این اطلاعات به‌صورت زنده و لحظه‌ای به‌روزرسانی می‌شود.</p>
+   869→   869→    </Modal>
+   870→   870→  );
+   871→   871→}
+   872→   872→

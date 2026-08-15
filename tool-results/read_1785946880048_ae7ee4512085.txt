@@ -1,0 +1,850 @@
+     1→import { useMemo, useRef, useState } from "react";
+     2→import { motion, AnimatePresence } from "framer-motion";
+     3→import { doctors } from "../data";
+     4→import type { Nav } from "../nav";
+     5→import Icon from "../components/Icon";
+     6→import PanelWeekly from "../components/PanelWeekly";
+     7→import PanelSecretary from "../components/PanelSecretary";
+     8→import PanelAdminChat from "../components/PanelAdminChat";
+     9→import PanelSupport from "../components/PanelSupport";
+    10→
+    11→const toFa = (s: string | number) =>
+    12→  String(s).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[+d]);
+    13→const faNum = (n: number) => n.toLocaleString("fa-IR");
+    14→
+    15→type Tab = "dashboard" | "weekly" | "clinic" | "secretary" | "patients" | "reviews" | "finance" | "support" | "admin" | "profile";
+    16→
+    17→export type Profile = {
+    18→  name: string;
+    19→  specialty: string;
+    20→  phone: string;
+    21→  email: string;
+    22→  about: string;
+    23→  experience: number;
+    24→  fee: number;
+    25→  location: string;
+    26→  photo: string;
+    27→  username: string;
+    28→  password: string;
+    29→  banner: string;
+    30→};
+    31→
+    32→const TABS: { id: Tab; label: string; icon: string }[] = [
+    33→  { id: "dashboard", label: "داشبورد", icon: "chart" },
+    34→  { id: "weekly", label: "برنامه هفتگی", icon: "calendar" },
+    35→  { id: "clinic", label: "مدیریت مطب", icon: "location" },
+    36→  { id: "secretary", label: "منشی", icon: "user" },
+    37→  { id: "patients", label: "بیماران", icon: "user" },
+    38→  { id: "reviews", label: "نظرات", icon: "star" },
+    39→  { id: "finance", label: "مالی", icon: "wallet" },
+    40→  { id: "support", label: "پشتیبانی", icon: "phone" },
+    41→  { id: "admin", label: "ارتباط با مدیر", icon: "mail" },
+    42→  { id: "profile", label: "پروفایل", icon: "user" },
+    43→];
+    44→
+    45→/* ---------------- mock data ---------------- */
+    46→const todayPatients = [
+    47→  { name: "نگار حسینی", time: "۰۹:۰۰", service: "ویزیت قلب", status: "done" },
+    48→  { name: "محمد رستمی", time: "۱۰:۳۰", service: "اکو قلب", status: "waiting" },
+    49→  { name: "زهرا کاظمی", time: "۱۲:۰۰", service: "ویزیت قلب", status: "waiting" },
+    50→  { name: "سینا ملکی", time: "۱۶:۰۰", service: "نظارت فشار", status: "waiting" },
+    51→  { name: "پریسا اکبری", time: "۱۷:۳۰", service: "ویزیت قلب", status: "waiting" },
+    52→];
+    53→
+    54→const patientsData = [
+    55→  { name: "نگار حسینی", visits: 8, rating: 5, last: "امروز" },
+    56→  { name: "محمد رستمی", visits: 5, rating: 5, last: "امروز" },
+    57→  { name: "زهرا کاظمی", visits: 12, rating: 4, last: "امروز" },
+    58→  { name: "سینا ملکی", visits: 3, rating: 5, last: "امروز" },
+    59→  { name: "آرش کریمی", visits: 6, rating: 4, last: "۳ روز پیش" },
+    60→  { name: "مریم صادقی", visits: 9, rating: 5, last: "۱ هفته پیش" },
+    61→  { name: "بهرام نوری", visits: 2, rating: 3, last: "۲ هفته پیش" },
+    62→  { name: "الهام رضایی", visits: 4, rating: 5, last: "۱ ماه پیش" },
+    63→];
+    64→
+    65→type Review = {
+    66→  id: number;
+    67→  name: string;
+    68→  rating: number;
+    69→  text: string;
+    70→  status: "approved" | "pending" | "rejected";
+    71→  reply?: string;
+    72→};
+    73→const initialReviews: Review[] = [
+    74→  { id: 1, name: "نگار حسینی", rating: 5, text: "بسیار دقیق و صبور بودند؛ ممنونم.", status: "approved", reply: "از لطف شما سپاسگزارم 🙏" },
+    75→  { id: 2, name: "محمد رستمی", rating: 5, text: "تشخیص عالی و توضیحات کامل.", status: "pending" },
+    76→  { id: 3, name: "زهرا کاظمی", rating: 4, text: "ویزیت خوب بود ولی کمی منتظر ماندم.", status: "pending" },
+    77→  { id: 4, name: "سینا ملکی", rating: 2, text: "محتوای نامناسب.", status: "rejected" },
+    78→];
+    79→
+    80→const initialPayments = [
+    81→  { id: "۱۰۲۴", date: "۱۴ تیر", patient: "نگار حسینی", amount: 320000, status: "تسویه" },
+    82→  { id: "۱۰۲۳", date: "۱۴ تیر", patient: "محمد رستمی", amount: 320000, status: "تسویه" },
+    83→  { id: "۱۰۲۲", date: "۱۳ تیر", patient: "زهرا کاظمی", amount: 320000, status: "در انتظار" },
+    84→  { id: "۱۰۲۱", date: "۱۳ تیر", patient: "آرش کریمی", amount: 320000, status: "تسویه" },
+    85→  { id: "۱۰۲۰", date: "۱۲ تیر", patient: "مریم صادقی", amount: 320000, status: "تسویه" },
+    86→];
+    87→
+    88→const revenueByPeriod = {
+    89→  day: { total: 1850000, chart: [{ label: "ش", value: 180 }, { label: "ی", value: 240 }, { label: "د", value: 150 }, { label: "س", value: 300 }, { label: "چ", value: 270 }, { label: "پ", value: 320 }, { label: "ج", value: 90 }] },
+    90→  month: { total: 48200000, chart: [{ label: "فرو", value: 32 }, { label: "ارد", value: 28 }, { label: "خرد", value: 41 }, { label: "تیر", value: 48 }, { label: "مرد", value: 39 }, { label: "شهر", value: 44 }] },
+    91→  year: { total: 580000000, chart: [{ label: "۱۴۰۱", value: 360 }, { label: "۱۴۰۲", value: 420 }, { label: "۱۴۰۳", value: 510 }, { label: "۱۴۰۴", value: 580 }] },
+    92→};
+    93→
+    94→/* clinics */
+    95→export type Clinic = {
+    96→  id: number;
+    97→  name: string;
+    98→  address: string;
+    99→  phone: string;
+   100→  lat: number;
+   101→  lng: number;
+   102→  photos: string[];
+   103→  secretary: string;
+   104→  secretaryManaged: boolean;
+   105→};
+   106→const G = (id: number) =>
+   107→  `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=500&w=700`;
+   108→const initialClinics: Clinic[] = [
+   109→  { id: 1, name: "مطب ولیعصر", address: "تهران، خیابان ولیعصر، بالاتر از پارک‌وی، پلاک ۱۲۳", phone: "021-91002314", lat: 35.775, lng: 51.414, photos: [G(7108324), G(8459996), G(6809658)], secretary: "محمدی", secretaryManaged: true },
+   110→  { id: 2, name: "مطب سعادت‌آباد", address: "تهران، سعادت‌آباد، بلوار دریا، پلاک ۸۸", phone: "021-91005678", lat: 35.792, lng: 51.376, photos: [G(4269274), G(6627866)], secretary: "احمدی", secretaryManaged: false },
+   111→];
+   112→
+   113→/* bank cards */
+   114→export type BankCard = { id: number; bank: string; number: string; holder: string; expiry: string };
+   115→const bankStyle: Record<string, string> = {
+   116→  "بانک ملت": "from-amber-500 to-rose-600",
+   117→  "بانک صادرات": "from-blue-600 to-indigo-700",
+   118→  "بانک ملی": "from-emerald-500 to-teal-700",
+   119→  "بانک پاسارگاد": "from-sky-500 to-blue-700",
+   120→  "بانک سپه": "from-slate-600 to-slate-800",
+   121→};
+   122→const gradFor = (b: string) => bankStyle[b] ?? "from-cyan-500 to-blue-700";
+   123→const initialCards: BankCard[] = [
+   124→  { id: 1, bank: "بانک ملت", number: "6219861901234567", holder: "سارا محمدی", expiry: "08/27" },
+   125→  { id: 2, bank: "بانک صادرات", number: "6037691123456789", holder: "سارا محمدی", expiry: "11/26" },
+   126→];
+   127→
+   128→function exportCSV(filename: string, rows: (string | number)[][]) {
+   129→  const bom = "\uFEFF";
+   130→  const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+   131→  const blob = new Blob([bom + csv], { type: "text/csv;charset=utf-8;" });
+   132→  const url = URL.createObjectURL(blob);
+   133→  const a = document.createElement("a");
+   134→  a.href = url;
+   135→  a.download = filename;
+   136→  a.click();
+   137→  URL.revokeObjectURL(url);
+   138→}
+   139→
+   140→function mapSrc(lat: number, lng: number) {
+   141→  return `https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.012}%2C${lat - 0.01}%2C${lng + 0.012}%2C${lat + 0.01}&layer=mapnik&marker=${lat}%2C${lng}`;
+   142→}
+   143→
+   144→/* ---------------- UI bits ---------------- */
+   145→function Stars({ value, className = "h-3.5 w-3.5" }: { value: number; className?: string }) {
+   146→  return (
+   147→    <span className="inline-flex">
+   148→      {[0, 1, 2, 3, 4].map((i) => (
+   149→        <Icon key={i} name="star" className={`${className} ${i < value ? "fill-amber-500 text-amber-500" : "fill-slate-200 text-slate-200"}`} />
+   150→      ))}
+   151→    </span>
+   152→  );
+   153→}
+   154→
+   155→function BarChart({ data }: { data: { label: string; value: number }[] }) {
+   156→  const max = Math.max(...data.map((d) => d.value), 1);
+   157→  return (
+   158→    <div className="flex h-44 items-end gap-2">
+   159→      {data.map((d) => (
+   160→        <div key={d.label} className="flex flex-1 flex-col items-center gap-1">
+   161→          <span className="text-[10px] font-bold text-slate-400">{faNum(d.value)}</span>
+   162→          <div className="flex w-full flex-1 items-end">
+   163→            <motion.div initial={{ height: 0 }} animate={{ height: `${(d.value / max) * 100}%` }} transition={{ duration: 0.5 }} className="w-full rounded-t-lg bg-gradient-to-t from-cyan-500 to-blue-400" style={{ minHeight: 4 }} />
+   164→          </div>
+   165→          <span className="text-[10px] text-slate-500">{d.label}</span>
+   166→        </div>
+   167→      ))}
+   168→    </div>
+   169→  );
+   170→}
+   171→
+   172→function Panel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+   173→  return <div className={`rounded-3xl glass p-4 sm:p-5 ${className}`}>{children}</div>;
+   174→}
+   175→
+   176→function Overlay({ children, onClose, dismissable = true }: { children: React.ReactNode; onClose: () => void; dismissable?: boolean }) {
+   177→  return (
+   178→    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={dismissable ? onClose : undefined} className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
+   179→      <motion.div initial={{ opacity: 0, scale: 0.95, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96 }} onClick={(e) => e.stopPropagation()} className="glass max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl p-6">
+   180→        {children}
+   181→      </motion.div>
+   182→    </motion.div>
+   183→  );
+   184→}
+   185→
+   186→/* 3D bank card */
+   187→function BankCard3D({ card, onEdit, onDelete }: { card: BankCard; onEdit: () => void; onDelete: () => void }) {
+   188→  const ref = useRef<HTMLDivElement>(null);
+   189→  const [t, setT] = useState({ rx: 0, ry: 0, gx: 50, gy: 50 });
+   190→  const onMove = (e: React.MouseEvent) => {
+   191→    const el = ref.current;
+   192→    if (!el) return;
+   193→    const r = el.getBoundingClientRect();
+   194→    const px = (e.clientX - r.left) / r.width;
+   195→    const py = (e.clientY - r.top) / r.height;
+   196→    setT({ rx: -(py - 0.5) * 18, ry: (px - 0.5) * 22, gx: px * 100, gy: py * 100 });
+   197→  };
+   198→  const reset = () => setT({ rx: 0, ry: 0, gx: 50, gy: 50 });
+   199→  const groups = card.number.replace(/\D/g, "").padEnd(16, "•").replace(/(.{4})/g, "$1 ").trim();
+   200→  return (
+   201→    <div style={{ perspective: 1100 }} className="group">
+   202→      <div
+   203→        ref={ref}
+   204→        onMouseMove={onMove}
+   205→        onMouseLeave={reset}
+   206→        style={{ transform: `rotateX(${t.rx}deg) rotateY(${t.ry}deg)`, transformStyle: "preserve-3d" }}
+   207→        className="relative aspect-[1.586] w-full rounded-2xl p-5 text-white shadow-2xl shadow-black/30 transition-transform duration-150"
+   208→      >
+   209→        <div className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${gradFor(card.bank)}`} />
+   210→        <div className="absolute inset-0 rounded-2xl opacity-70" style={{ background: `radial-gradient(circle at ${t.gx}% ${t.gy}%, rgba(255,255,255,.35), transparent 55%)` }} />
+   211→        {/* actions */}
+   212→        <div className="absolute left-3 top-3 z-10 flex gap-1.5 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100" style={{ transform: "translateZ(40px)" }}>
+   213→          <button onClick={onEdit} data-cursor="hover" className="grid h-7 w-7 place-items-center rounded-lg bg-white/25 backdrop-blur hover:bg-white/40"><Icon name="edit" className="h-3.5 w-3.5" /></button>
+   214→          <button onClick={onDelete} data-cursor="hover" className="grid h-7 w-7 place-items-center rounded-lg bg-white/25 backdrop-blur hover:bg-rose-500/70"><Icon name="trash" className="h-3.5 w-3.5" /></button>
+   215→        </div>
+   216→        {/* content */}
+   217→        <div className="relative flex h-full flex-col justify-between" style={{ transform: "translateZ(30px)" }}>
+   218→          <div className="flex items-start justify-between">
+   219→            <div className="h-8 w-11 rounded-md bg-gradient-to-br from-amber-200 to-yellow-500 shadow-inner">
+   220→              <div className="m-1 h-full rounded-sm border-t border-b border-amber-700/30" />
+   221→            </div>
+   222→            <span className="text-sm font-bold drop-shadow">{card.bank}</span>
+   223→          </div>
+   224→          <div className="text-base font-bold tabular-nums drop-shadow sm:text-lg" style={{ letterSpacing: "0.08em" }}>{toFa(groups)}</div>
+   225→          <div className="flex items-end justify-between text-xs">
+   226→            <div>
+   227→              <div className="text-[9px] opacity-70">دارنده کارت</div>
+   228→              <div className="font-bold">{card.holder}</div>
+   229→            </div>
+   230→            <div className="text-left">
+   231→              <div className="text-[9px] opacity-70">انقضا</div>
+   232→              <div className="font-bold tabular-nums">{toFa(card.expiry)}</div>
+   233→            </div>
+   234→          </div>
+   235→        </div>
+   236→      </div>
+   237→    </div>
+   238→  );
+   239→}
+   240→
+   241→/* ---------------- modals ---------------- */
+   242→function ClinicModal({ initial, onSave, onClose }: { initial: Clinic | null; onSave: (c: Clinic) => void; onClose: () => void }) {
+   243→  const [f, setF] = useState<Clinic>(initial ?? { id: 0, name: "", address: "", phone: "", lat: 35.775, lng: 51.414, photos: [], secretary: "", secretaryManaged: false });
+   244→  const fileRef = useRef<HTMLInputElement>(null);
+   245→  const set = (k: keyof Clinic, v: any) => setF((p) => ({ ...p, [k]: v }));
+   246→
+   247→  const onFiles = (files: FileList | null) => {
+   248→    if (!files) return;
+   249→    const room = 4 - f.photos.length;
+   250→    Array.from(files).slice(0, room).forEach((file) => {
+   251→      const reader = new FileReader();
+   252→      reader.onload = () => setF((p) => ({ ...p, photos: [...p.photos, reader.result as string].slice(0, 4) }));
+   253→      reader.readAsDataURL(file);
+   254→    });
+   255→  };
+   256→
+   257→  return (
+   258→    <Overlay onClose={onClose}>
+   259→      <div className="flex items-center justify-between">
+   260→        <h3 className="text-lg font-black text-slate-900">{initial ? "ویرایش مطب" : "افزودن مطب"}</h3>
+   261→        <button onClick={onClose} data-cursor="hover" className="grid h-8 w-8 place-items-center rounded-lg bg-white/70 text-slate-500"><Icon name="close" className="h-4 w-4" /></button>
+   262→      </div>
+   263→      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+   264→        <Field label="نام مطب"><input value={f.name} onChange={(e) => set("name", e.target.value)} className="input" data-cursor="text" /></Field>
+   265→        <Field label="فامیل منشی مطب"><input value={f.secretary} onChange={(e) => set("secretary", e.target.value)} className="input" data-cursor="text" /></Field>
+   266→        <Field label="شماره تلفن مطب"><input value={f.phone} onChange={(e) => set("phone", e.target.value)} className="input" data-cursor="text" /></Field>
+   267→        <div className="grid grid-cols-2 gap-2">
+   268→          <Field label="عرض جغرافیایی"><input type="number" step="0.001" value={f.lat} onChange={(e) => set("lat", +e.target.value)} className="input" data-cursor="text" /></Field>
+   269→          <Field label="طول جغرافیایی"><input type="number" step="0.001" value={f.lng} onChange={(e) => set("lng", +e.target.value)} className="input" data-cursor="text" /></Field>
+   270→        </div>
+   271→      </div>
+   272→      <Field label="آدرس مطب" className="mt-3"><textarea value={f.address} onChange={(e) => set("address", e.target.value)} rows={2} className="input resize-none" data-cursor="text" /></Field>
+   273→
+   274→      {/* photos */}
+   275→      <div className="mt-3">
+   276→        <div className="mb-1.5 flex items-center justify-between">
+   277→          <span className="text-xs font-medium text-slate-600">عکس‌های مطب (حداکثر ۴)</span>
+   278→          <span className="text-[11px] text-slate-400">{faNum(f.photos.length)}/۴</span>
+   279→        </div>
+   280→        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+   281→          {f.photos.map((p, i) => (
+   282→            <div key={i} className="relative aspect-square overflow-hidden rounded-xl">
+   283→              <img src={p} alt="" className="h-full w-full object-cover" />
+   284→              <button onClick={() => set("photos", f.photos.filter((_, k) => k !== i))} data-cursor="hover" className="absolute right-1 top-1 grid h-6 w-6 place-items-center rounded-lg bg-black/50 text-white"><Icon name="trash" className="h-3 w-3" /></button>
+   285→            </div>
+   286→          ))}
+   287→          {f.photos.length < 4 && (
+   288→            <button onClick={() => fileRef.current?.click()} data-cursor="hover" className="grid aspect-square place-items-center rounded-xl border-2 border-dashed border-slate-300 text-slate-400 hover:border-cyan-400 hover:text-cyan-600">
+   289→              <Icon name="plus" className="h-6 w-6" />
+   290→            </button>
+   291→          )}
+   292→        </div>
+   293→        <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => onFiles(e.target.files)} />
+   294→      </div>
+   295→
+   296→      {/* secretary management toggle */}
+   297→      <button onClick={() => set("secretaryManaged", !f.secretaryManaged)} data-cursor="hover" className="mt-3 flex w-full items-center justify-between rounded-2xl border border-slate-100 bg-white/60 p-3 text-right">
+   298→        <div><div className="flex items-center gap-2 text-sm font-bold text-slate-800"><Icon name="user" className="h-4 w-4 text-cyan-600" />مدیریت مطب توسط منشی</div><div className="text-[11px] text-slate-400">{f.secretaryManaged ? "منشی اجازه‌ی مدیریت مطب را دارد" : "منشی دسترسی مدیریت ندارد"}</div></div>
+   299→        <span className={`relative h-7 w-12 shrink-0 rounded-full transition ${f.secretaryManaged ? "bg-emerald-500" : "bg-slate-300"}`}><span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${f.secretaryManaged ? "left-1" : "right-1"}`} /></span>
+   300→      </button>
+   301→
+   302→      {/* map preview */}
+   303→      <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200">
+   304→        <iframe title="map" src={mapSrc(f.lat, f.lng)} className="h-36 w-full border-0" loading="lazy" />
+   305→      </div>
+   306→
+   307→      <button onClick={() => f.name.trim() && onSave(f)} data-cursor="hover" className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 py-3 text-sm font-bold text-white shadow-lg shadow-cyan-500/30">
+   308→        <Icon name="check" className="h-4 w-4" /> ذخیره مطب
+   309→      </button>
+   310→    </Overlay>
+   311→  );
+   312→}
+   313→
+   314→function CardModal({ initial, onSave, onClose }: { initial: BankCard | null; onSave: (c: BankCard) => void; onClose: () => void }) {
+   315→  const [f, setF] = useState<BankCard>(initial ?? { id: 0, bank: "بانک ملت", number: "", holder: "", expiry: "" });
+   316→  const banks = Object.keys(bankStyle);
+   317→  return (
+   318→    <Overlay onClose={onClose}>
+   319→      <div className="flex items-center justify-between">
+   320→        <h3 className="text-lg font-black text-slate-900">{initial ? "ویرایش کارت" : "افزودن کارت"}</h3>
+   321→        <button onClick={onClose} data-cursor="hover" className="grid h-8 w-8 place-items-center rounded-lg bg-white/70 text-slate-500"><Icon name="close" className="h-4 w-4" /></button>
+   322→      </div>
+   323→      <div className="mt-4 space-y-3">
+   324→        <Field label="بانک">
+   325→          <div className="relative">
+   326→            <select value={f.bank} onChange={(e) => setF((p) => ({ ...p, bank: e.target.value }))} className="input appearance-none">
+   327→              {banks.map((b) => <option key={b} className="bg-white">{b}</option>)}
+   328→              <option className="bg-white">بانک دیگر</option>
+   329→            </select>
+   330→            <Icon name="arrow" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 rotate-90 text-slate-400" />
+   331→          </div>
+   332→        </Field>
+   333→        <Field label="شماره کارت (۱۶ رقم)"><input inputMode="numeric" maxLength={16} value={f.number} onChange={(e) => setF((p) => ({ ...p, number: e.target.value.replace(/\D/g, "") }))} className="input tracking-widest" data-cursor="text" /></Field>
+   334→        <div className="grid grid-cols-2 gap-3">
+   335→          <Field label="نام دارنده"><input value={f.holder} onChange={(e) => setF((p) => ({ ...p, holder: e.target.value }))} className="input" data-cursor="text" /></Field>
+   336→          <Field label="تاریخ انقضا (MM/YY)"><input value={f.expiry} onChange={(e) => setF((p) => ({ ...p, expiry: e.target.value }))} placeholder="08/27" className="input" data-cursor="text" /></Field>
+   337→        </div>
+   338→      </div>
+   339→      {/* live preview */}
+   340→      <div className="mt-4">
+   341→        <BankCard3D card={f.number ? f : { ...f, number: f.number.padEnd(16, "0") }} onEdit={() => {}} onDelete={() => {}} />
+   342→      </div>
+   343→      <button onClick={() => f.number.length >= 16 && f.holder.trim() && onSave(f)} data-cursor="hover" className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 py-3 text-sm font-bold text-white shadow-lg shadow-cyan-500/30">
+   344→        <Icon name="check" className="h-4 w-4" /> ذخیره کارت
+   345→      </button>
+   346→    </Overlay>
+   347→  );
+   348→}
+   349→
+   350→function ProfileModal({ initial, onSave, onClose }: { initial: Profile; onSave: (p: Profile) => void; onClose: () => void }) {
+   351→  const [f, setF] = useState<Profile>(initial);
+   352→  const fileRef = useRef<HTMLInputElement>(null);
+   353→  const set = (k: keyof Profile, v: any) => setF((p) => ({ ...p, [k]: v }));
+   354→  const onFile = (file?: File) => {
+   355→    if (!file) return;
+   356→    const r = new FileReader();
+   357→    r.onload = () => set("photo", r.result as string);
+   358→    r.readAsDataURL(file);
+   359→  };
+   360→  const bannerRef = useRef<HTMLInputElement>(null);
+   361→  const onBanner = (file?: File) => {
+   362→    if (!file) return;
+   363→    const r = new FileReader();
+   364→    r.onload = () => set("banner", r.result as string);
+   365→    r.readAsDataURL(file);
+   366→  };
+   367→  return (
+   368→    <Overlay onClose={onClose}>
+   369→      <div className="flex items-center justify-between">
+   370→        <h3 className="text-lg font-black text-slate-900">ویرایش پروفایل</h3>
+   371→        <button onClick={onClose} data-cursor="hover" className="grid h-8 w-8 place-items-center rounded-lg bg-white/70 text-slate-500"><Icon name="close" className="h-4 w-4" /></button>
+   372→      </div>
+   373→      <div className="mt-4 flex items-center gap-4">
+   374→        {f.photo ? <img src={f.photo} alt="" className="h-16 w-16 rounded-2xl object-cover object-top" /> : <div className="grid h-16 w-16 place-items-center rounded-2xl bg-cyan-50 text-cyan-600"><Icon name="user" className="h-7 w-7" /></div>}
+   375→        <button onClick={() => fileRef.current?.click()} data-cursor="hover" className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600 hover:border-cyan-300 hover:text-cyan-700">تغییر عکس</button>
+   376→        {f.photo && <button onClick={() => set("photo", "")} data-cursor="hover" className="text-xs font-bold text-rose-600">حذف عکس</button>}
+   377→        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
+   378→      </div>
+   379→      <div className="mt-4">
+   380→        <div className="mb-1.5 text-xs font-medium text-slate-600">تصویر بنر داشبورد (۱۶:۹)</div>
+   381→        <div className="relative aspect-video overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+   382→          {f.banner ? <img src={f.banner} alt="" className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center text-slate-300"><Icon name="spark" className="h-8 w-8" /></div>}
+   383→        </div>
+   384→        <div className="mt-2 flex gap-2">
+   385→          <button onClick={() => bannerRef.current?.click()} data-cursor="hover" className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600 hover:border-cyan-300 hover:text-cyan-700">تغییر بنر</button>
+   386→          {f.banner && <button onClick={() => set("banner", "")} data-cursor="hover" className="text-xs font-bold text-rose-600">حذف بنر</button>}
+   387→          <input ref={bannerRef} type="file" accept="image/*" className="hidden" onChange={(e) => onBanner(e.target.files?.[0])} />
+   388→        </div>
+   389→      </div>
+   390→      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+   391→        <Field label="نام و نام خانوادگی"><input value={f.name} onChange={(e) => set("name", e.target.value)} className="input" data-cursor="text" /></Field>
+   392→        <Field label="تخصص"><input value={f.specialty} onChange={(e) => set("specialty", e.target.value)} className="input" data-cursor="text" /></Field>
+   393→        <Field label="شماره تلفن"><input value={f.phone} onChange={(e) => set("phone", e.target.value)} className="input" data-cursor="text" /></Field>
+   394→        <Field label="ایمیل"><input value={f.email} onChange={(e) => set("email", e.target.value)} className="input" data-cursor="text" /></Field>
+   395→        <Field label="سابقه کار (سال)"><input type="number" value={f.experience} onChange={(e) => set("experience", +e.target.value)} className="input" data-cursor="text" /></Field>
+   396→        <Field label="هزینه ویزیت (تومان)"><input type="number" value={f.fee} onChange={(e) => set("fee", +e.target.value)} className="input" data-cursor="text" /></Field>
+   397→      </div>
+   398→      <div className="mt-3 rounded-2xl bg-slate-50 p-3">
+   399→        <div className="mb-2 text-xs font-bold text-slate-500">نام کاربری و رمز عبور</div>
+   400→        <div className="grid gap-3 sm:grid-cols-2">
+   401→          <Field label="نام کاربری"><input value={f.username} onChange={(e) => set("username", e.target.value)} className="input" data-cursor="text" /></Field>
+   402→          <Field label="رمز عبور"><input value={f.password} onChange={(e) => set("password", e.target.value)} className="input" data-cursor="text" /></Field>
+   403→        </div>
+   404→      </div>
+   405→      <Field label="آدرس مطب" className="mt-3"><input value={f.location} onChange={(e) => set("location", e.target.value)} className="input" data-cursor="text" /></Field>
+   406→      <Field label="درباره پزشک" className="mt-3"><textarea value={f.about} onChange={(e) => set("about", e.target.value)} rows={3} className="input resize-none" data-cursor="text" /></Field>
+   407→      <button onClick={() => onSave(f)} data-cursor="hover" className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 py-3 text-sm font-bold text-white shadow-lg shadow-cyan-500/30"><Icon name="check" className="h-4 w-4" />ذخیره تغییرات</button>
+   408→    </Overlay>
+   409→  );
+   410→}
+   411→
+   412→function Field({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) {
+   413→  return (
+   414→    <label className={`block ${className}`}>
+   415→      <span className="mb-1.5 block text-xs font-medium text-slate-600">{label}</span>
+   416→      {children}
+   417→    </label>
+   418→  );
+   419→}
+   420→
+   421→/* ---------------- main ---------------- */
+   422→export default function DoctorPanel({ navigate }: { navigate: Nav }) {
+   423→  const me = doctors[0];
+   424→  const [tab, setTab] = useState<Tab>("dashboard");
+   425→
+   426→  const [period, setPeriod] = useState<"day" | "month" | "year">("day");
+   427→
+   428→  const [reviewsEnabled, setReviewsEnabled] = useState(true);
+   429→  const [reviews, setReviews] = useState<Review[]>(initialReviews);
+   430→  const [replyId, setReplyId] = useState<number | null>(null);
+   431→  const [draft, setDraft] = useState("");
+   432→
+   433→  const [payments] = useState(initialPayments);
+   434→
+   435→  // clinics
+   436→  const [clinics, setClinics] = useState<Clinic[]>(initialClinics);
+   437→  const [clinicView, setClinicView] = useState<number | null>(null); // clinic id detail
+   438→  const [clinicEdit, setClinicEdit] = useState<{ open: boolean; initial: Clinic | null }>({ open: false, initial: null });
+   439→
+   440→  // cards
+   441→  const [cards, setCards] = useState<BankCard[]>(initialCards);
+   442→  const [cardEdit, setCardEdit] = useState<{ open: boolean; initial: BankCard | null }>({ open: false, initial: null });
+   443→
+   444→  // profile
+   445→  const initialProfile: Profile = { name: me.name, specialty: me.specialty, phone: me.phone, email: "s.mohammadi@noban.ir", about: me.about, experience: me.experience, fee: me.fee, location: me.location, photo: me.photo, username: "dr.mohammadi", password: "secret123", banner: "https://images.pexels.com/photos/7108324/pexels-photo-7108324.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=600&w=1067" };
+   446→  const [profile, setProfile] = useState<Profile>(initialProfile);
+   447→  const [deleted, setDeleted] = useState(false);
+   448→  const [profileEdit, setProfileEdit] = useState(false);
+   449→  const [confirmDelete, setConfirmDelete] = useState(false);
+   450→  const saveProfile = (p: Profile) => { setProfile(p); setDeleted(false); setProfileEdit(false); };
+   451→  const doDelete = () => { setProfile({ name: "", specialty: "", phone: "", email: "", about: "", experience: 0, fee: 0, location: "", photo: "", username: "", password: "", banner: "" }); setDeleted(true); setConfirmDelete(false); };
+   452→  const restoreProfile = () => { setProfile(initialProfile); setDeleted(false); };
+   453→
+   454→  // settlement
+   455→  const [settle, setSettle] = useState<{ open: boolean; amount: string; card: string; done: boolean }>({ open: false, amount: "", card: initialCards[0].bank, done: false });
+   456→
+   457→  const totalRevenue = useMemo(() => payments.filter((p) => p.status === "تسویه").reduce((s, p) => s + p.amount, 0), [payments]);
+   458→
+   459→  /* reviews handlers */
+   460→  const setReviewStatus = (id: number, status: Review["status"]) => setReviews((r) => r.map((x) => (x.id === id ? { ...x, status } : x)));
+   461→  const saveReply = (id: number) => { if (!draft.trim()) return; setReviews((r) => r.map((x) => (x.id === id ? { ...x, reply: draft.trim() } : x))); setReplyId(null); setDraft(""); };
+   462→  const deleteReply = (id: number) => setReviews((r) => r.map((x) => (x.id === id ? { ...x, reply: undefined } : x)));
+   463→
+   464→  /* clinic handlers */
+   465→  const saveClinic = (c: Clinic) => {
+   466→    setClinics((prev) => (c.id ? prev.map((x) => (x.id === c.id ? c : x)) : [...prev, { ...c, id: Date.now() }]));
+   467→    setClinicEdit({ open: false, initial: null });
+   468→  };
+   469→  const deleteClinic = (id: number) => { setClinics((prev) => prev.filter((x) => x.id !== id)); setClinicView(null); };
+   470→
+   471→  /* card handlers */
+   472→  const saveCard = (c: BankCard) => {
+   473→    setCards((prev) => (c.id ? prev.map((x) => (x.id === c.id ? c : x)) : [...prev, { ...c, id: Date.now() }]));
+   474→    setCardEdit({ open: false, initial: null });
+   475→  };
+   476→  const deleteCard = (id: number) => setCards((prev) => prev.filter((x) => x.id !== id));
+   477→
+   478→  const requestSettle = () => { setSettle((s) => ({ ...s, done: true })); setTimeout(() => setSettle({ open: false, amount: "", card: cards[0]?.bank ?? "", done: false }), 1800); };
+   479→
+   480→  const activeClinic = clinics.find((c) => c.id === clinicView) || null;
+   481→
+   482→  return (
+   483→    <div className="min-h-screen pb-12 pt-24">
+   484→      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+   485→        {/* mobile sticky tabs */}
+   486→        <div className="sticky top-[4.5rem] z-30 mb-5 lg:hidden">
+   487→          <div className="no-scrollbar flex gap-2 overflow-x-auto rounded-2xl glass p-2">
+   488→            {TABS.map((t) => (
+   489→              <button key={t.id} onClick={() => { setTab(t.id); setClinicView(null); }} data-cursor="hover" className={`flex shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition ${tab === t.id ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white" : "text-slate-600"}`}><Icon name={t.icon} className="h-4 w-4" />{t.label}</button>
+   490→            ))}
+   491→          </div>
+   492→        </div>
+   493→
+   494→        <div className="grid gap-6 lg:grid-cols-[250px_1fr]">
+   495→          {/* sidebar */}
+   496→          <aside className="lg:sticky lg:top-24 lg:self-start">
+   497→            <div className="rounded-3xl glass p-4">
+   498→              <div className="flex items-center gap-3">
+   499→                {profile.photo ? <img src={profile.photo} alt={profile.name} className="h-12 w-12 rounded-2xl object-cover object-top" /> : <div className="grid h-12 w-12 place-items-center rounded-2xl bg-cyan-50 text-cyan-600"><Icon name="user" className="h-6 w-6" /></div>}
+   500→                <div className="min-w-0"><div className="truncate font-bold text-slate-900">{profile.name || "بدون نام"}</div><div className="text-xs text-cyan-700">{profile.specialty || "—"}</div></div>
+   501→              </div>
+   502→            </div>
+   503→            <nav className="mt-3 hidden gap-1.5 rounded-3xl glass p-2 lg:flex lg:flex-col">
+   504→              {TABS.map((t) => (
+   505→                <button key={t.id} onClick={() => { setTab(t.id); setClinicView(null); }} data-cursor="hover" className={`flex items-center gap-2.5 rounded-2xl px-4 py-3 text-sm font-bold transition ${tab === t.id ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-md shadow-cyan-500/25" : "text-slate-600 hover:bg-slate-100"}`}>
+   506→                  <Icon name={t.icon} className="h-5 w-5" />{t.label}
+   507→                </button>
+   508→              ))}
+   509→              <button onClick={() => navigate("home")} data-cursor="hover" className="mt-1 flex items-center gap-2.5 rounded-2xl px-4 py-3 text-sm font-bold text-slate-500 transition hover:bg-slate-100"><Icon name="logout" className="h-5 w-5" />بازگشت به سایت</button>
+   510→            </nav>
+   511→            {/* mobile tabs rendered as sticky bar above the grid */}
+   512→          </aside>
+   513→
+   514→          {/* content */}
+   515→          <section>
+   516→            <AnimatePresence mode="wait">
+   517→              <motion.div key={tab + (clinicView ?? "")} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.25 }}>
+   518→
+   519→                {/* ===== DASHBOARD ===== */}
+   520→                {tab === "dashboard" && (
+   521→                  <div className="space-y-5">
+   522→                    {profile.banner && (
+   523→                      <div className="relative overflow-hidden rounded-3xl shadow-lg shadow-cyan-500/10">
+   524→                        <img src={profile.banner} alt="" className="aspect-[16/9] w-full object-cover" />
+   525→                        <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
+   526→                        <div className="absolute bottom-4 right-5 flex items-center gap-3">
+   527→                          {profile.photo ? <img src={profile.photo} alt="" className="h-12 w-12 rounded-2xl object-cover object-top ring-2 ring-white/80" /> : <div className="grid h-12 w-12 place-items-center rounded-2xl bg-white/30 text-white"><Icon name="user" className="h-6 w-6" /></div>}
+   528→                          <div className="text-white drop-shadow"><div className="text-lg font-black sm:text-2xl">سلام، {profile.name || "پزشک"} 👋</div><div className="text-xs text-white/85 sm:text-sm">خوش آمدید به پنل پزشک</div></div>
+   529→                        </div>
+   530→                      </div>
+   531→                    )}
+   532→                    <div><h1 className="text-2xl font-black text-slate-900">داشبورد</h1><p className="text-sm text-slate-500">خلاصه‌ی وضعیت امروز شما</p></div>
+   533→                    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+   534→                      {[{ label: "نوبت‌های امروز", value: faNum(todayPatients.length), icon: "calendar", tone: "text-cyan-600 bg-cyan-50" }, { label: "درآمد امروز", value: toFa("۱٬۸۵۰٬۰۰۰") + " ت", icon: "wallet", tone: "text-emerald-600 bg-emerald-50" }, { label: "بیماران جدید", value: faNum(7), icon: "user", tone: "text-violet-600 bg-violet-50" }, { label: "میانگین امتیاز", value: toFa("۴٫۸"), icon: "star", tone: "text-amber-600 bg-amber-50" }].map((s) => (
+   535→                        <Panel key={s.label}><div className={`mb-3 inline-flex rounded-xl p-2 ${s.tone}`}><Icon name={s.icon} className="h-5 w-5" /></div><div className="text-lg font-black leading-tight text-slate-900 sm:text-xl">{s.value}</div><div className="text-xs text-slate-500">{s.label}</div></Panel>
+   536→                      ))}
+   537→                    </div>
+   538→                    <div className="grid gap-5 lg:grid-cols-2">
+   539→                      <Panel>
+   540→                        <div className="mb-4 flex items-center justify-between"><h3 className="font-bold text-slate-900">بیماران رزروشده‌ی امروز</h3><span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-bold text-cyan-700">{faNum(todayPatients.length)} نفر</span></div>
+   541→                        <div className="space-y-2.5">
+   542→                          {todayPatients.map((p) => (
+   543→                            <div key={p.name} className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white/60 p-3">
+   544→                              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-cyan-50 text-sm font-bold text-cyan-700">{toFa(p.time)}</span>
+   545→                              <div className="min-w-0 flex-1"><div className="truncate text-sm font-bold text-slate-800">{p.name}</div><div className="text-xs text-slate-500">{p.service}</div></div>
+   546→                              <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${p.status === "done" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"}`}>{p.status === "done" ? "ویزیت شد" : "در انتظار"}</span>
+   547→                            </div>
+   548→                          ))}
+   549→                        </div>
+   550→                      </Panel>
+   551→                      <Panel>
+   552→                        <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h3 className="font-bold text-slate-900">درآمد</h3>
+   553→                          <div className="flex rounded-xl border border-slate-200 bg-white p-1 text-xs font-bold">
+   554→                            {(["day", "month", "year"] as const).map((p) => (<button key={p} onClick={() => setPeriod(p)} data-cursor="hover" className={`rounded-lg px-3 py-1.5 transition ${period === p ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white" : "text-slate-500"}`}>{p === "day" ? "روز" : p === "month" ? "ماه" : "سال"}</button>))}
+   555→                          </div>
+   556→                        </div>
+   557→                        <div className="mb-1 text-xs text-slate-500">درآمد {period === "day" ? "امروز" : period === "month" ? "این ماه" : "این سال"}</div>
+   558→                        <div className="mb-4 text-2xl font-black text-slate-900">{toFa(revenueByPeriod[period].total.toLocaleString("fa-IR"))} <span className="text-sm font-medium text-slate-400">تومان</span></div>
+   559→                        <BarChart data={revenueByPeriod[period].chart} />
+   560→                      </Panel>
+   561→                    </div>
+   562→                  </div>
+   563→                )}
+   564→
+   565→                {/* ===== CLINIC ===== */}
+   566→                {tab === "clinic" && (
+   567→                  activeClinic ? (
+   568→                    <div className="space-y-5">
+   569→                      <button onClick={() => setClinicView(null)} data-cursor="hover" className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/70 px-4 py-1.5 text-sm font-medium text-slate-600 hover:border-cyan-300 hover:text-cyan-700"><Icon name="arrow" className="h-4 w-4 rotate-180" />بازگشت به لیست مطب‌ها</button>
+   570→                      <div className="flex flex-wrap items-center justify-between gap-3">
+   571→                        <h1 className="text-2xl font-black text-slate-900">{activeClinic.name}</h1>
+   572→                        <div className="flex gap-2">
+   573→                          <button onClick={() => setClinicEdit({ open: true, initial: activeClinic })} data-cursor="hover" className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600 hover:border-cyan-300 hover:text-cyan-700"><Icon name="edit" className="h-4 w-4" />ویرایش</button>
+   574→                          <button onClick={() => deleteClinic(activeClinic.id)} data-cursor="hover" className="flex items-center gap-1.5 rounded-xl bg-rose-50 px-4 py-2 text-sm font-bold text-rose-600 hover:bg-rose-100"><Icon name="trash" className="h-4 w-4" />حذف</button>
+   575→                        </div>
+   576→                      </div>
+   577→                      <div className="grid gap-5 lg:grid-cols-2">
+   578→                        <div className="space-y-4">
+   579→                          <Panel><h3 className="mb-2 flex items-center gap-2 font-bold text-slate-900"><Icon name="location" className="h-4 w-4 text-cyan-600" />آدرس</h3><p className="text-sm leading-relaxed text-slate-600">{activeClinic.address}</p></Panel>
+   580→                          <Panel><h3 className="mb-2 flex items-center gap-2 font-bold text-slate-900"><Icon name="phone" className="h-4 w-4 text-cyan-600" />شماره تلفن</h3><a href={`tel:${activeClinic.phone}`} data-cursor="hover" className="text-lg font-black text-cyan-700">{toFa(activeClinic.phone)}</a>
+   581→                            <div className="mt-3 border-t border-slate-100 pt-3"><div className="text-xs text-slate-500">منشی مطب</div><div className="font-bold text-slate-800">{activeClinic.secretary || "—"}</div></div>
+   582→                          </Panel>
+   583→                          <button onClick={() => setClinics((prev) => prev.map((c) => c.id === activeClinic.id ? { ...c, secretaryManaged: !c.secretaryManaged } : c))} data-cursor="hover" className="flex items-center justify-between rounded-3xl glass p-5 text-right">
+   584→                            <div><div className="flex items-center gap-2 font-bold text-slate-900"><Icon name="user" className="h-5 w-5 text-cyan-600" />مدیریت مطب توسط منشی</div><div className="mt-1 text-xs text-slate-500">{activeClinic.secretaryManaged ? "منشی می‌تواند وضعیت مطب و صف را مدیریت کند" : "دسترسی مدیریت مطب برای منشی غیرفعال است"}</div></div>
+   585→                            <span className={`relative h-7 w-12 shrink-0 rounded-full transition ${activeClinic.secretaryManaged ? "bg-emerald-500" : "bg-slate-300"}`}><span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${activeClinic.secretaryManaged ? "left-1" : "right-1"}`} /></span>
+   586→                          </button>
+   587→                        </div>
+   588→                        <div className="space-y-4">
+   589→                          <Panel><h3 className="mb-3 font-bold text-slate-900">نقشه</h3><div className="overflow-hidden rounded-2xl border border-slate-200"><iframe title="map" src={mapSrc(activeClinic.lat, activeClinic.lng)} className="h-56 w-full border-0" loading="lazy" /></div></Panel>
+   590→                          <Panel><h3 className="mb-3 font-bold text-slate-900">عکس‌های مطب ({faNum(activeClinic.photos.length)})</h3>
+   591→                            {activeClinic.photos.length ? (
+   592→                              <div className="grid grid-cols-2 gap-2">{activeClinic.photos.map((p, i) => <img key={i} src={p} alt="" className="aspect-video w-full rounded-xl object-cover" />)}</div>
+   593→                            ) : <p className="text-sm text-slate-400">عکسی ثبت نشده است.</p>}
+   594→                          </Panel>
+   595→                        </div>
+   596→                      </div>
+   597→                    </div>
+   598→                  ) : (
+   599→                    <div className="space-y-5">
+   600→                      <div className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-black text-slate-900">مدیریت مطب</h1><p className="text-sm text-slate-500">مطب‌های ثبت‌شده‌ی شما</p></div>
+   601→                        <button onClick={() => setClinicEdit({ open: true, initial: null })} data-cursor="hover" className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-cyan-500/25"><Icon name="plus" className="h-4 w-4" />افزودن مطب</button>
+   602→                      </div>
+   603→                      <div className="grid gap-4 sm:grid-cols-2">
+   604→                        {clinics.map((c) => (
+   605→                          <button key={c.id} onClick={() => setClinicView(c.id)} data-cursor="hover" className="group overflow-hidden rounded-3xl glass text-right transition hover:shadow-xl hover:shadow-cyan-500/10">
+   606→                            <div className="relative h-36 overflow-hidden">
+   607→                              <img src={c.photos[0] || G(7108324)} alt={c.name} className="h-full w-full object-cover transition group-hover:scale-105" />
+   608→                              <div className="absolute inset-0 bg-gradient-to-t from-white to-transparent" />
+   609→                              <div className="absolute bottom-3 right-3 text-lg font-black text-slate-900">{c.name}</div>
+   610→                            </div>
+   611→                            <div className="space-y-2 p-4 text-xs text-slate-500">
+   612→                              <div className="flex items-center gap-2"><Icon name="location" className="h-4 w-4 text-cyan-600" /><span className="line-clamp-1">{c.address}</span></div>
+   613→                              <div className="flex items-center justify-between"><span className="flex items-center gap-2"><Icon name="phone" className="h-4 w-4 text-cyan-600" />{toFa(c.phone)}</span><span className="flex items-center gap-1.5"><Icon name="user" className="h-4 w-4 text-cyan-600" />منشی: {c.secretary || "—"}</span></div>
+   614→                            </div>
+   615→                          </button>
+   616→                        ))}
+   617→                        {clinics.length === 0 && <Panel className="sm:col-span-2 text-center text-sm text-slate-400">هنوز مطبی ثبت نشده است.</Panel>}
+   618→                      </div>
+   619→                    </div>
+   620→                  )
+   621→                )}
+   622→
+   623→                {/* ===== PATIENTS ===== */}
+   624→                {tab === "patients" && (
+   625→                  <div className="space-y-5">
+   626→                    <div><h1 className="text-2xl font-black text-slate-900">بیماران</h1><p className="text-sm text-slate-500">لیست بیمارانی که تاکنون ویزیت شده‌اند</p></div>
+   627→                    <Panel className="overflow-hidden p-0">
+   628→                      <div className="hidden grid-cols-[2fr_1fr_1fr_1fr] gap-2 border-b border-slate-100 bg-white/60 px-5 py-3 text-xs font-bold text-slate-500 sm:grid"><span>بیمار</span><span className="text-center">تعداد رزرو</span><span className="text-center">امتیاز ثبت‌شده</span><span className="text-center">آخرین ویزیت</span></div>
+   629→                      <div className="divide-y divide-slate-100">
+   630→                        {patientsData.map((p) => (
+   631→                          <div key={p.name} className="px-5 py-3 transition hover:bg-cyan-50/40">
+   632→                            {/* mobile card */}
+   633→                            <div className="flex items-center gap-3 sm:hidden">
+   634→                              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 text-sm font-bold text-white">{p.name.charAt(0)}</span>
+   635→                              <div className="min-w-0 flex-1">
+   636→                                <div className="truncate text-sm font-bold text-slate-800">{p.name}</div>
+   637→                                <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px]">
+   638→                                  <span className="rounded-md bg-cyan-50 px-1.5 py-0.5 font-bold text-cyan-700">{faNum(p.visits)} رزرو</span>
+   639→                                  <Stars value={p.rating} className="h-3 w-3" />
+   640→                                  <span className="text-slate-400">{p.last}</span>
+   641→                                </div>
+   642→                              </div>
+   643→                            </div>
+   644→                            {/* desktop row */}
+   645→                            <div className="hidden grid-cols-[2fr_1fr_1fr_1fr] items-center gap-2 sm:grid">
+   646→                              <div className="flex items-center gap-2.5"><span className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 text-xs font-bold text-white">{p.name.charAt(0)}</span><span className="text-sm font-bold text-slate-800">{p.name}</span></div>
+   647→                              <span className="text-center text-sm font-bold text-cyan-700">{faNum(p.visits)}</span>
+   648→                              <span className="flex justify-center"><Stars value={p.rating} /></span>
+   649→                              <span className="text-center text-xs text-slate-500">{p.last}</span>
+   650→                            </div>
+   651→                          </div>
+   652→                        ))}
+   653→                      </div>
+   654→                    </Panel>
+   655→                  </div>
+   656→                )}
+   657→
+   658→                {/* ===== REVIEWS ===== */}
+   659→                {tab === "reviews" && (
+   660→                  <div className="space-y-5">
+   661→                    <div><h1 className="text-2xl font-black text-slate-900">نظرات</h1><p className="text-sm text-slate-500">مدیریت نظرات کاربران در صفحه‌ی دکتر</p></div>
+   662→                    <Panel className="flex items-center justify-between">
+   663→                      <div><div className="font-bold text-slate-900">نظرات در صفحه‌ی دکتر</div><div className="text-xs text-slate-500">{reviewsEnabled ? "نظرات برای بیماران نمایش داده می‌شود" : "بخش نظرات غیرفعال است"}</div></div>
+   664→                      <button onClick={() => setReviewsEnabled((v) => !v)} data-cursor="hover" className={`relative h-8 w-14 rounded-full transition ${reviewsEnabled ? "bg-emerald-500" : "bg-slate-300"}`}><motion.span layout transition={{ type: "spring", stiffness: 500, damping: 30 }} className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow ${reviewsEnabled ? "left-1" : "right-1"}`} /></button>
+   665→                    </Panel>
+   666→                    <div className="space-y-3">
+   667→                      {reviews.map((r) => (
+   668→                        <Panel key={r.id}>
+   669→                          <div className="flex items-start justify-between gap-3">
+   670→                            <div className="flex items-center gap-2.5"><span className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 text-xs font-bold text-white">{r.name.charAt(0)}</span><div><div className="text-sm font-bold text-slate-800">{r.name}</div><Stars value={r.rating} className="h-3 w-3" /></div></div>
+   671→                            <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${r.status === "approved" ? "bg-emerald-50 text-emerald-600" : r.status === "rejected" ? "bg-rose-50 text-rose-600" : "bg-amber-50 text-amber-600"}`}>{r.status === "approved" ? "تأیید شده" : r.status === "rejected" ? "رد شده" : "در انتظار"}</span>
+   672→                          </div>
+   673→                          <p className="mt-3 text-sm leading-relaxed text-slate-600">{r.text}</p>
+   674→                          {r.reply && replyId !== r.id && (
+   675→                            <div className="mt-3 rounded-2xl bg-cyan-50/70 p-3"><div className="mb-1 text-[11px] font-bold text-cyan-700">پاسخ شما</div><p className="text-sm text-slate-700">{r.reply}</p>
+   676→                              <div className="mt-2 flex gap-2"><button onClick={() => { setReplyId(r.id); setDraft(r.reply ?? ""); }} data-cursor="hover" className="flex items-center gap-1 rounded-lg bg-white px-2.5 py-1 text-[11px] font-bold text-slate-600 hover:text-cyan-700"><Icon name="edit" className="h-3.5 w-3.5" />ویرایش</button><button onClick={() => deleteReply(r.id)} data-cursor="hover" className="flex items-center gap-1 rounded-lg bg-white px-2.5 py-1 text-[11px] font-bold text-rose-600 hover:bg-rose-50"><Icon name="trash" className="h-3.5 w-3.5" />حذف</button></div>
+   677→                            </div>
+   678→                          )}
+   679→                          {replyId === r.id && (
+   680→                            <div className="mt-3"><textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={2} placeholder="پاسخ خود را بنویسید…" className="input resize-none" data-cursor="text" />
+   681→                              <div className="mt-2 flex gap-2"><button onClick={() => saveReply(r.id)} data-cursor="hover" className="rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-2 text-xs font-bold text-white">ذخیره پاسخ</button><button onClick={() => { setReplyId(null); setDraft(""); }} data-cursor="hover" className="rounded-lg bg-white px-4 py-2 text-xs font-bold text-slate-500">انصراف</button></div>
+   682→                            </div>
+   683→                          )}
+   684→                          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+   685→                            {r.status !== "approved" && <button onClick={() => setReviewStatus(r.id, "approved")} data-cursor="hover" className="flex items-center gap-1 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-600"><Icon name="check" className="h-3.5 w-3.5" />تأیید</button>}
+   686→                            {r.status !== "rejected" && <button onClick={() => setReviewStatus(r.id, "rejected")} data-cursor="hover" className="flex items-center gap-1 rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-600"><Icon name="close" className="h-3.5 w-3.5" />رد</button>}
+   687→                            {!r.reply && replyId !== r.id && <button onClick={() => { setReplyId(r.id); setDraft(""); }} data-cursor="hover" className="flex items-center gap-1 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600"><Icon name="edit" className="h-3.5 w-3.5" />پاسخ</button>}
+   688→                          </div>
+   689→                        </Panel>
+   690→                      ))}
+   691→                    </div>
+   692→                  </div>
+   693→                )}
+   694→
+   695→                {/* ===== FINANCE ===== */}
+   696→                {tab === "finance" && (
+   697→                  <div className="space-y-5">
+   698→                    <div className="flex flex-wrap items-center justify-between gap-3">
+   699→                      <div><h1 className="text-2xl font-black text-slate-900">مالی</h1><p className="text-sm text-slate-500">مدیریت درآمد، کارت‌ها و تسویه‌حساب</p></div>
+   700→                      <div className="flex gap-2">
+   701→                        <button onClick={() => setSettle({ open: true, amount: "", card: cards[0]?.bank ?? "", done: false })} data-cursor="hover" className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-cyan-500/25"><Icon name="wallet" className="h-4 w-4" />درخواست تسویه</button>
+   702→                        <button onClick={() => exportCSV("payments.csv", [["کد", "تاریخ", "بیمار", "مبلغ (تومان)", "وضعیت"], ...payments.map((p) => [p.id, p.date, p.patient, p.amount, p.status])])} data-cursor="hover" className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 hover:border-cyan-300 hover:text-cyan-700"><Icon name="download" className="h-4 w-4" />خروجی اکسل</button>
+   703→                      </div>
+   704→                    </div>
+   705→
+   706→                    <Panel><div className="text-xs text-slate-500">درآمد کل (تسویه‌شده)</div><div className="mt-1 text-3xl font-black text-slate-900">{toFa(totalRevenue.toLocaleString("fa-IR"))} <span className="text-sm font-medium text-slate-400">تومان</span></div></Panel>
+   707→
+   708→                    {/* cards section */}
+   709→                    <div className="rounded-3xl glass p-5">
+   710→                      <div className="mb-4 flex items-center justify-between">
+   711→                        <h3 className="flex items-center gap-2 font-bold text-slate-900"><Icon name="wallet" className="h-5 w-5 text-cyan-600" />کارت‌های بانکی</h3>
+   712→                        <button onClick={() => setCardEdit({ open: true, initial: null })} data-cursor="hover" className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:border-cyan-300 hover:text-cyan-700"><Icon name="plus" className="h-4 w-4" />افزودن کارت</button>
+   713→                      </div>
+   714→                      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+   715→                        {cards.map((c) => <BankCard3D key={c.id} card={c} onEdit={() => setCardEdit({ open: true, initial: c })} onDelete={() => deleteCard(c.id)} />)}
+   716→                        {cards.length === 0 && <p className="text-sm text-slate-400">کارتی ثبت نشده است.</p>}
+   717→                      </div>
+   718→                    </div>
+   719→
+   720→                    {/* payments */}
+   721→                    <Panel className="overflow-hidden p-0">
+   722→                      <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3"><h3 className="font-bold text-slate-900">لیست پرداخت‌ها</h3><span className="text-xs text-slate-500">{faNum(payments.length)} تراکنش</span></div>
+   723→                      <div className="hidden grid-cols-[1fr_1.4fr_1fr_1fr] gap-2 border-b border-slate-100 bg-white/60 px-5 py-3 text-xs font-bold text-slate-500 sm:grid"><span>کد</span><span>بیمار</span><span className="text-center">مبلغ</span><span className="text-center">وضعیت</span></div>
+   724→                      <div className="divide-y divide-slate-100">
+   725→                        {payments.map((p) => (
+   726→                          <div key={p.id} className="px-5 py-3 transition hover:bg-cyan-50/40">
+   727→                            {/* mobile card */}
+   728→                            <div className="flex items-center justify-between gap-3 sm:hidden">
+   729→                              <div className="min-w-0">
+   730→                                <div className="truncate text-sm font-bold text-slate-800">{p.patient}</div>
+   731→                                <div className="text-[11px] text-slate-400">#{toFa(p.id)} · {p.date}</div>
+   732→                              </div>
+   733→                              <div className="shrink-0 text-left">
+   734→                                <div className="text-sm font-bold text-slate-700">{toFa(p.amount.toLocaleString("fa-IR"))} ت</div>
+   735→                                <span className={`mt-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${p.status === "تسویه" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"}`}>{p.status}</span>
+   736→                              </div>
+   737→                            </div>
+   738→                            {/* desktop row */}
+   739→                            <div className="hidden grid-cols-[1fr_1.4fr_1fr_1fr] items-center gap-2 sm:grid">
+   740→                              <span className="text-xs font-bold text-slate-500">#{toFa(p.id)}</span><span className="text-sm font-bold text-slate-800">{p.patient}</span><span className="text-center text-sm font-bold text-slate-700">{toFa(p.amount.toLocaleString("fa-IR"))}</span>
+   741→                              <span className="text-center"><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${p.status === "تسویه" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"}`}>{p.status}</span></span>
+   742→                            </div>
+   743→                          </div>
+   744→                        ))}
+   745→                      </div>
+   746→                    </Panel>
+   747→                  </div>
+   748→                )}
+   749→
+   750→                {/* ===== WEEKLY ===== */}
+   751→                {tab === "weekly" && <PanelWeekly />}
+   752→
+   753→                {/* ===== SECRETARY ===== */}
+   754→                {tab === "secretary" && <PanelSecretary clinics={clinics.map((c) => ({ id: c.id, name: c.name, photo: c.photos[0] }))} />}
+   755→
+   756→                {/* ===== ADMIN CHAT ===== */}
+   757→                {tab === "admin" && <PanelAdminChat />}
+   758→
+   759→                {/* ===== SUPPORT ===== */}
+   760→                {tab === "support" && <PanelSupport />}
+   761→
+   762→                {/* ===== PROFILE ===== */}
+   763→                {tab === "profile" && (
+   764→                  deleted ? (
+   765→                    <div className="flex flex-col items-center py-20 text-center">
+   766→                      <div className="grid h-20 w-20 place-items-center rounded-full bg-rose-50 text-rose-400"><Icon name="trash" className="h-9 w-9" /></div>
+   767→                      <h2 className="mt-4 text-xl font-black text-slate-900">پروفایل شما حذف شد</h2>
+   768→                      <p className="mt-1 text-sm text-slate-500">می‌توانید پروفایل را به حالت اولیه بازیابی کنید.</p>
+   769→                      <button onClick={restoreProfile} data-cursor="hover" className="mt-5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-cyan-500/30">بازیابی پروفایل</button>
+   770→                    </div>
+   771→                  ) : (
+   772→                    <div className="space-y-5">
+   773→                      <Panel>
+   774→                        <div className="flex flex-col items-center gap-4 sm:flex-row">
+   775→                          {profile.photo ? <img src={profile.photo} alt={profile.name} className="h-24 w-24 rounded-3xl object-cover object-top ring-4 ring-white shadow" /> : <div className="grid h-24 w-24 place-items-center rounded-3xl bg-cyan-50 text-cyan-600"><Icon name="user" className="h-10 w-10" /></div>}
+   776→                          <div className="flex-1 text-center sm:text-right">
+   777→                            <h1 className="text-2xl font-black text-slate-900">{profile.name || "بدون نام"}</h1>
+   778→                            <div className="text-cyan-700">{profile.specialty || "—"}</div>
+   779→                            <p className="mt-2 max-w-md text-sm text-slate-500">{profile.about || "—"}</p>
+   780→                          </div>
+   781→                          <div className="flex gap-2">
+   782→                            <button onClick={() => setProfileEdit(true)} data-cursor="hover" className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600 hover:border-cyan-300 hover:text-cyan-700"><Icon name="edit" className="h-4 w-4" />ویرایش</button>
+   783→                            <button onClick={() => setConfirmDelete(true)} data-cursor="hover" className="flex items-center gap-1.5 rounded-xl bg-rose-50 px-4 py-2 text-sm font-bold text-rose-600 hover:bg-rose-100"><Icon name="trash" className="h-4 w-4" />حذف پروفایل</button>
+   784→                          </div>
+   785→                        </div>
+   786→                      </Panel>
+   787→                      <div className="grid gap-4 sm:grid-cols-2">
+   788→                        <Panel><div className="mb-2 inline-flex rounded-xl bg-cyan-50 p-2 text-cyan-600"><Icon name="phone" className="h-5 w-5" /></div><div className="text-xs text-slate-500">شماره تلفن</div><a href={`tel:${profile.phone}`} data-cursor="hover" className="font-bold text-slate-900">{profile.phone ? toFa(profile.phone) : "—"}</a></Panel>
+   789→                        <Panel><div className="mb-2 inline-flex rounded-xl bg-cyan-50 p-2 text-cyan-600"><Icon name="mail" className="h-5 w-5" /></div><div className="text-xs text-slate-500">ایمیل</div><div className="font-bold text-slate-900">{profile.email || "—"}</div></Panel>
+   790→                        <Panel><div className="mb-2 inline-flex rounded-xl bg-cyan-50 p-2 text-cyan-600"><Icon name="stethoscope" className="h-5 w-5" /></div><div className="text-xs text-slate-500">سابقه کار</div><div className="font-bold text-slate-900">{profile.experience ? toFa(profile.experience) + " سال" : "—"}</div></Panel>
+   791→                        <Panel><div className="mb-2 inline-flex rounded-xl bg-cyan-50 p-2 text-cyan-600"><Icon name="wallet" className="h-5 w-5" /></div><div className="text-xs text-slate-500">هزینه ویزیت</div><div className="font-bold text-slate-900">{profile.fee ? toFa(profile.fee.toLocaleString("fa-IR")) + " ت" : "—"}</div></Panel>
+   792→                        <Panel className="sm:col-span-2"><div className="mb-2 inline-flex rounded-xl bg-cyan-50 p-2 text-cyan-600"><Icon name="location" className="h-5 w-5" /></div><div className="text-xs text-slate-500">آدرس مطب</div><div className="font-bold text-slate-900">{profile.location || "—"}</div></Panel>
+   793→                      </div>
+   794→                    </div>
+   795→                  )
+   796→                )}
+   797→              </motion.div>
+   798→            </AnimatePresence>
+   799→          </section>
+   800→        </div>
+   801→      </div>
+   802→
+   803→      {/* modals */}
+   804→      <AnimatePresence>
+   805→        {clinicEdit.open && <ClinicModal key="cm" initial={clinicEdit.initial} onSave={saveClinic} onClose={() => setClinicEdit({ open: false, initial: null })} />}
+   806→        {cardEdit.open && <CardModal key="cardm" initial={cardEdit.initial} onSave={saveCard} onClose={() => setCardEdit({ open: false, initial: null })} />}
+   807→        {profileEdit && <ProfileModal key="pm" initial={profile} onSave={saveProfile} onClose={() => setProfileEdit(false)} />}
+   808→        {confirmDelete && (
+   809→          <Overlay key="del" onClose={() => setConfirmDelete(false)}>
+   810→            <div className="text-center">
+   811→              <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-rose-50 text-rose-500"><Icon name="trash" className="h-8 w-8" /></div>
+   812→              <h3 className="mt-4 text-lg font-black text-slate-900">حذف پروفایل؟</h3>
+   813→              <p className="mt-1 text-sm text-slate-500">با حذف، مشخصات و عکس پروفایل پاک می‌شود. این عمل قابل بازیابی است.</p>
+   814→              <div className="mt-5 flex gap-2">
+   815→                <button onClick={doDelete} data-cursor="hover" className="flex-1 rounded-xl bg-rose-500 py-2.5 text-sm font-bold text-white">بله، حذف کن</button>
+   816→                <button onClick={() => setConfirmDelete(false)} data-cursor="hover" className="flex-1 rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-bold text-slate-600">انصراف</button>
+   817→              </div>
+   818→            </div>
+   819→          </Overlay>
+   820→        )}
+   821→      </AnimatePresence>
+   822→
+   823→      {/* settlement */}
+   824→      <AnimatePresence>
+   825→        {settle.open && (
+   826→          <motion.div key="settle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => !settle.done && setSettle((s) => ({ ...s, open: false }))} className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
+   827→            <motion.div initial={{ opacity: 0, scale: 0.95, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96 }} onClick={(e) => e.stopPropagation()} className="glass w-full max-w-md rounded-3xl p-6">
+   828→              {settle.done ? (
+   829→                <div className="flex flex-col items-center py-6 text-center">
+   830→                  <motion.div initial={{ scale: 0, rotate: -20 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 200, damping: 12 }} className="grid h-16 w-16 place-items-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 shadow-xl shadow-emerald-500/40"><Icon name="check" className="h-8 w-8 text-white" /></motion.div>
+   831→                  <h3 className="mt-4 text-lg font-black text-slate-900">درخواست ارسال شد</h3><p className="mt-1 text-sm text-slate-500">درخواست تسویه‌ی شما برای مدیر ارسال شد.</p>
+   832→                </div>
+   833→              ) : (
+   834→                <>
+   835→                  <div className="flex items-center justify-between"><h3 className="text-lg font-black text-slate-900">درخواست تسویه‌حساب</h3><button onClick={() => setSettle((s) => ({ ...s, open: false }))} data-cursor="hover" className="grid h-8 w-8 place-items-center rounded-lg bg-white/70 text-slate-500"><Icon name="close" className="h-4 w-4" /></button></div>
+   836→                  <div className="mt-4 space-y-3">
+   837→                    <Field label="مبلغ تسویه (تومان)"><input value={settle.amount} onChange={(e) => setSettle((s) => ({ ...s, amount: e.target.value }))} inputMode="numeric" placeholder="مثلاً ۱۰۰۰۰۰۰" className="input" data-cursor="text" /></Field>
+   838→                    <Field label="کارت مقصد"><div className="relative"><select value={settle.card} onChange={(e) => setSettle((s) => ({ ...s, card: e.target.value }))} className="input appearance-none">{cards.map((c) => <option key={c.id} className="bg-white">{c.bank} •••• {toFa(c.number.slice(-4))}</option>)}{cards.length === 0 && <option className="bg-white">کارتی وجود ندارد</option>}</select><Icon name="arrow" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 rotate-90 text-slate-400" /></div></Field>
+   839→                  </div>
+   840→                  <button onClick={requestSettle} data-cursor="hover" className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 py-3 text-sm font-bold text-white shadow-lg shadow-cyan-500/30"><Icon name="check" className="h-4 w-4" />ثبت درخواست برای مدیر</button>
+   841→                </>
+   842→              )}
+   843→            </motion.div>
+   844→          </motion.div>
+   845→        )}
+   846→      </AnimatePresence>
+   847→    </div>
+   848→  );
+   849→}
+   850→

@@ -5,8 +5,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import Icon from "../components/Icon";
 import OtpInput from "../components/OtpInput";
-import { useAuth } from "../store/auth";
+import { useAuth, type User } from "../store/auth";
 import type { Nav } from "../nav";
+
+const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
 const toFa = (s: string | number) =>
   String(s).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[+d]);
@@ -282,7 +284,7 @@ export default function AuthPage({ navigate }: { navigate: Nav }) {
                 <Icon name="check" className="h-10 w-10 text-white" />
               </motion.div>
               <h2 className="mt-5 text-2xl font-black text-slate-900 dark:text-slate-100">
-                {currentSignupStep >= 0 || step === "loading" ? "ثبت‌نام موفقیت‌آمیز بود!" : "ورود موفقیت‌آمیز بود!"}
+                {currentSignupStep >= 0 ? "ثبت‌نام موفقیت‌آمیز بود!" : "ورود موفقیت‌آمیز بود!"}
               </h2>
               <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
                 {firstName

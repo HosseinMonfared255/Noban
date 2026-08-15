@@ -59,7 +59,8 @@ export default function OtpInput({
     e.preventDefault();
     const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
     if (pasted.length > 0) {
-      const next = pasted.split("").padEnd(6, "").slice(0, 6).map((c) => c || "");
+      const chars = pasted.split("");
+      const next = Array(6).fill("").map((_, i) => chars[i] || "");
       onChange(next);
       const lastFilled = Math.min(pasted.length - 1, 5);
       refs.current[lastFilled]?.focus();

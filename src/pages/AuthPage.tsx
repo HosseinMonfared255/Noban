@@ -76,10 +76,12 @@ export default function AuthPage({ navigate }: { navigate: Nav }) {
       setLoading(false);
       // Mock: login with phone + a default name derived from phone
       loginUser({
+        id: genId(),
         phone,
         firstName: "کاربر",
         lastName: "نوبان",
-        createdAt: Date.now(),
+        createdAt: new Date().toISOString(),
+        loginHistory: [],
       });
       setStep("success");
     }, 1400);
@@ -163,9 +165,10 @@ export default function AuthPage({ navigate }: { navigate: Nav }) {
       loginUser({
         id: data.user.id,
         phone: data.user.phone,
-        firstName: data.user.firstName,
-        lastName: data.user.lastName,
+        firstName: data.user.firstName || "کاربر",
+        lastName: data.user.lastName || "نوبان",
         createdAt: data.user.createdAt,
+        loginHistory: [],
       });
       setStep("success");
     } catch {
@@ -225,9 +228,10 @@ export default function AuthPage({ navigate }: { navigate: Nav }) {
       loginUser({
         id: data.user.id,
         phone: data.user.phone,
-        firstName: data.user.firstName,
-        lastName: data.user.lastName,
+        firstName: data.user.firstName || firstName.trim(),
+        lastName: data.user.lastName || lastName.trim(),
         createdAt: data.user.createdAt,
+        loginHistory: [],
       });
       setStep("success");
     } catch {

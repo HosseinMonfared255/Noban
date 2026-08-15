@@ -8,7 +8,7 @@ import { useScrolling } from "../utils/useScrolling";
 
 const HeroScene = lazy(() => import("./HeroScene"));
 
-type Nav = (page: "home" | "doctors" | "doctor" | "login", section?: string) => void;
+type Nav = (page: "home" | "doctors" | "doctor" | "login" | "appointments" | "article" | "panel" | "admin" | "secretary" | "favorites" | "help" | "profile", section?: string) => void;
 
 const ECG_POINTS =
   "0,40 120,40 140,40 152,20 164,60 176,8 188,72 200,40 320,40 340,40 352,25 364,55 376,40 600,40";

@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = 'force-dynamic';
+
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -941,3 +943,8 @@ function LiveClinicModal({ doctor, onClose }: { doctor: Doctor; onClose: () => v
     </Modal>
   );
 }
+
+
+DoctorProfile.getInitialProps = async () => {
+  return {};
+};

@@ -3,8 +3,11 @@
 import { useParams } from "next/navigation";
 import DoctorProfile from "@/pages/DoctorProfile";
 import { useNavigate } from "@/hooks/useNavigate";
-import { doctors } from "@/data";
+import { useEffect, useState } from "react";
+import { getDoctorBySlug } from "@/lib/api";
+import type { Doctor } from "@prisma/client";
 import NotFound from "./not-found";
+import Loading from "./loading";
 
 /**
  * /doctors/[slug] — صفحه پروفایل اختصاصی هر پزشک
@@ -15,6 +18,8 @@ import NotFound from "./not-found";
 export default function DoctorProfilePage() {
   const params = useParams();
   const navigate = useNavigate();
+  const [doctor, setDoctor] = useState<Doctor | null>(null);
+  const [loading, setLoading] = useState(true);
   
   // Handle potential null/undefined params
   if (!params || typeof params.slug !== 'string') {
@@ -23,7 +28,25 @@ export default function DoctorProfilePage() {
   
   const slug = decodeURIComponent(params.slug);
 
-  const doctor = doctors.find((d) => d.name === slug);
+  useEffect(() => {
+    async function fetchDoctor() {
+      try {
+        const data = await getDoctorBySlug(slug);
+        setDoctor(data);
+      } catch (error) {
+        console.error('Error fetching doctor:', error);
+        setDoctor(null);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    fetchDoctor();
+  }, [slug]);
+
+  if (loading) {
+    return <Loading />;
+  }
 
   if (!doctor) {
     return <NotFound />;

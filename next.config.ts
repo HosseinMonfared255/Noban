@@ -1,8 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Enable standalone output for Vercel deployment
-  output: 'standalone',
+  // Disable standalone output for Vercel deployment (causes issues with Next.js 16+)
+  // output: 'standalone',
   
   // Enable experimental features if needed
   experimental: {

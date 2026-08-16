@@ -30,19 +30,18 @@ import Faq from "./components/Faq";
 import CompareBar from "./components/CompareBar";
 import CompareModal from "./components/CompareModal";
 import MobileBottomNav from "./components/MobileBottomNav";
-import { doctors } from "./data";
 import type { Nav, PageName } from "./nav";
 
 export default function App() {
   const [page, setPage] = useState<PageName>("home");
-  const [selectedDoctor, setSelectedDoctor] = useState(doctors[0].name);
+  const [selectedDoctor, setSelectedDoctor] = useState<string>("");
   const [selectedArticle, setSelectedArticle] = useState<string>("1");
   const [compareOpen, setCompareOpen] = useState(false);
   const pendingScroll = useRef<string | null>(null);
 
   const navigate: Nav = (target, section, doctorName) => {
     if (target === "doctor") {
-      setSelectedDoctor(doctorName ?? doctors[0].name);
+      setSelectedDoctor(doctorName ?? "");
       setPage("doctor");
       window.scrollTo(0, 0);
       return;
@@ -124,9 +123,8 @@ export default function App() {
     }
   }, [page]);
 
-  const activeDoctor =
-    doctors.find((d) => d.name === selectedDoctor) ?? doctors[0];
-
+  const activeDoctor = null; // Will be fetched dynamically in DoctorProfile page
+  
   return (
     <div className="relative min-h-screen overflow-x-hidden">
       {/* ambient page background — light: pastel blobs / dark: subtle deep tones */}

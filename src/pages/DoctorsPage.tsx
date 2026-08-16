@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { doctors, type Doctor } from "../data";
+import { getAllDoctors, getAllSpecialties } from "../lib/api";
+import type { Doctor, Specialty } from "@prisma/client";
 import TiltCard from "../components/TiltCard";
 import Icon from "../components/Icon";
 import FavoriteButton from "../components/FavoriteButton";
@@ -17,29 +18,62 @@ const TABLE_COLS =
   "grid-cols-[2.2fr_1.3fr_0.8fr_0.8fr_1.3fr_1fr_1.4fr]";
 
 export default function DoctorsPage({ navigate }: { navigate: Nav }) {
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [specialties, setSpecialties] = useState<Specialty[]>([]);
+  const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [spec, setSpec] = useState("همه");
   const [sort, setSort] = useState<SortKey>("rating");
   const [view, setView] = useState<View>("grid");
 
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [docsData, specsData] = await Promise.all([
+          getAllDoctors(),
+          getAllSpecialties()
+        ]);
+        setDoctors(docsData as unknown as Doctor[]);
+        setSpecialties(specsData);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    fetchData();
+  }, []);
+
   const allSpecs = useMemo(
-    () => ["همه", ...Array.from(new Set(doctors.map((d) => d.specialty)))],
-    []
+    () => ["همه", ...specialties.map(s => s.name)],
+    [specialties]
   );
 
   const list = useMemo(() => {
     const needle = q.trim();
     const filtered = doctors.filter(
       (d) =>
-        (spec === "همه" || d.specialty === spec) &&
+        (spec === "همه" || d.specialtyId === spec) &&
         (needle === "" ||
-          d.name.includes(needle) ||
-          d.specialty.includes(needle))
+          (d as any).name?.includes(needle) ||
+          (d as any).specialty?.name?.includes(needle))
     );
     return [...filtered].sort((a, b) =>
-      sort === "rating" ? b.rating - a.rating : b.experience - a.experience
+      sort === "rating" ? (b as any).rating - (a as any).rating : (b as any).experience - (a as any).experience
     );
-  }, [q, spec, sort]);
+  }, [q, spec, sort, doctors]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-cyan-500 border-t-transparent mx-auto"></div>
+          <p className="mt-4 text-slate-600">در حال بارگذاری پزشکان...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen pb-10 pt-28">

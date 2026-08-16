@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { doctors, type Doctor } from "../data";
+import { getAllDoctors } from "../lib/api";
+import type { Doctor } from "@prisma/client";
 import type { Nav } from "../nav";
 import Icon from "../components/Icon";
 import TiltCard from "../components/TiltCard";
@@ -13,12 +14,40 @@ const toFa = (s: string | number) =>
   String(s).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[+d]);
 
 export default function FavoritesPage({ navigate }: { navigate: Nav }) {
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [loading, setLoading] = useState(true);
   const ids = useFavorites((s) => s.ids);
 
+  useEffect(() => {
+    async function fetchDoctors() {
+      try {
+        const data = await getAllDoctors();
+        setDoctors(data as unknown as Doctor[]);
+      } catch (error) {
+        console.error('Error fetching doctors:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    fetchDoctors();
+  }, []);
+
   const list: Doctor[] = useMemo(
-    () => doctors.filter((d) => ids.includes(d.name)),
-    [ids]
+    () => doctors.filter((d) => ids.includes((d as any).name || d.id)),
+    [ids, doctors]
   );
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-rose-500 border-t-transparent mx-auto"></div>
+          <p className="mt-4 text-slate-600">در حال بارگذاری...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen pb-10 pt-28">

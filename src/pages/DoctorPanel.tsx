@@ -1,14 +1,14 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { doctors } from "../data";
 import type { Nav } from "../nav";
 import Icon from "../components/Icon";
 import PanelWeekly from "../components/PanelWeekly";
 import PanelSecretary from "../components/PanelSecretary";
 import PanelAdminChat from "../components/PanelAdminChat";
 import PanelSupport from "../components/PanelSupport";
+import { getDoctorBySlug, updateDoctorProfile, type Doctor } from "../lib/api";
 
 const toFa = (s: string | number) =>
   String(s).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[+d]);
@@ -422,7 +422,24 @@ function Field({ label, children, className = "" }: { label: string; children: R
 
 /* ---------------- main ---------------- */
 export default function DoctorPanel({ navigate }: { navigate: Nav }) {
-  const me = doctors[0];
+  const [me, setMe] = useState<Doctor | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const allDoctors = await getDoctorBySlug();
+        if (allDoctors && Array.isArray(allDoctors) && allDoctors.length > 0) {
+          setMe(allDoctors[0]);
+        }
+      } catch (e) {
+        console.error("Failed to load doctor profile", e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
   const [tab, setTab] = useState<Tab>("dashboard");
 
   const [period, setPeriod] = useState<"day" | "month" | "year">("day");
@@ -444,7 +461,22 @@ export default function DoctorPanel({ navigate }: { navigate: Nav }) {
   const [cardEdit, setCardEdit] = useState<{ open: boolean; initial: BankCard | null }>({ open: false, initial: null });
 
   // profile
-  const initialProfile: Profile = { name: me.name, specialty: me.specialty, phone: me.phone, email: "s.mohammadi@noban.ir", about: me.about, experience: me.experience, fee: me.fee, location: me.location, photo: me.photo, username: "dr.mohammadi", password: "secret123", banner: "https://images.pexels.com/photos/7108324/pexels-photo-7108324.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=600&w=1067" };
+  const initialProfile: Profile = me ? { 
+    name: me.name, 
+    specialty: me.specialty, 
+    phone: me.phone, 
+    email: "s.mohammadi@noban.ir", 
+    about: me.bio || "", 
+    experience: me.experienceYears || 0, 
+    fee: me.price || 0, 
+    location: me.location || "", 
+    photo: me.photo || "", 
+    username: "dr.mohammadi", 
+    password: "secret123", 
+    banner: "https://images.pexels.com/photos/7108324/pexels-photo-7108324.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=600&w=1067" 
+  } : {
+    name: "", specialty: "", phone: "", email: "", about: "", experience: 0, fee: 0, location: "", photo: "", username: "", password: "", banner: ""
+  };
   const [profile, setProfile] = useState<Profile>(initialProfile);
   const [deleted, setDeleted] = useState(false);
   const [profileEdit, setProfileEdit] = useState(false);

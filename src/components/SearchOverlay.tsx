@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { doctors, specialties, healthTips } from "../data";
+import { getAllDoctors, getAllSpecialties, getHealthTips, type HealthTip } from "../lib/api";
+import type { Doctor, Specialty } from "@prisma/client";
 import type { Nav } from "../nav";
 import Icon from "./Icon";
 import { useFocusTrap } from "../utils/useFocusTrap";
@@ -27,11 +28,35 @@ export default function SearchOverlay({
   onClose: () => void;
   navigate: Nav;
 }) {
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [specialties, setSpecialties] = useState<Specialty[]>([]);
+  const [healthTips, setHealthTips] = useState<HealthTip[]>([]);
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   useFocusTrap(panelRef, open);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [docsData, specsData, tipsData] = await Promise.all([
+          getAllDoctors(),
+          getAllSpecialties(),
+          Promise.resolve(getHealthTips())
+        ]);
+        setDoctors(docsData as unknown as Doctor[]);
+        setSpecialties(specsData);
+        setHealthTips(tipsData);
+      } catch (error) {
+        console.error('Error fetching search data:', error);
+      }
+    }
+    
+    if (open) {
+      fetchData();
+    }
+  }, [open]);
 
   // Reset on open
   useEffect(() => {
@@ -60,11 +85,11 @@ export default function SearchOverlay({
       doctors.slice(0, 4).forEach((d) =>
         out.push({
           type: "doctor",
-          title: d.name,
-          subtitle: `${d.specialty} • ${d.location}`,
+          title: (d as any).name || "",
+          subtitle: `${(d as any).specialty?.name || d.specialtyId} • ${(d as any).location || ""}`,
           icon: "user",
           action: () => {
-            navigate("doctor", undefined, d.name);
+            navigate("doctor", undefined, (d as any).name || "");
             onClose();
           },
         })
@@ -73,7 +98,7 @@ export default function SearchOverlay({
         out.push({
           type: "specialty",
           title: s.name,
-          subtitle: `${toFa(s.count)} پزشک متخصص`,
+          subtitle: `${toFa(0)} پزشک متخصص`,
           icon: "stethoscope",
           action: () => {
             navigate("home", "#booking");
@@ -87,18 +112,18 @@ export default function SearchOverlay({
     doctors
       .filter(
         (d) =>
-          d.name.toLowerCase().includes(needle) ||
-          d.specialty.toLowerCase().includes(needle) ||
-          d.location.toLowerCase().includes(needle)
+          ((d as any).name || "").toLowerCase().includes(needle) ||
+          ((d as any).specialty?.name || d.specialtyId).toLowerCase().includes(needle) ||
+          ((d as any).location || "").toLowerCase().includes(needle)
       )
       .forEach((d) =>
         out.push({
           type: "doctor",
-          title: d.name,
-          subtitle: `${d.specialty} • ${d.location}`,
+          title: (d as any).name || "",
+          subtitle: `${(d as any).specialty?.name || d.specialtyId} • ${(d as any).location || ""}`,
           icon: "user",
           action: () => {
-            navigate("doctor", undefined, d.name);
+            navigate("doctor", undefined, (d as any).name || "");
             onClose();
           },
         })
@@ -110,7 +135,7 @@ export default function SearchOverlay({
         out.push({
           type: "specialty",
           title: s.name,
-          subtitle: `${toFa(s.count)} پزشک متخصص`,
+          subtitle: `${toFa(0)} پزشک متخصص`,
           icon: "stethoscope",
           action: () => {
             navigate("home", "#booking");
@@ -138,7 +163,7 @@ export default function SearchOverlay({
         })
       );
     return out;
-  }, [q, navigate, onClose]);
+  }, [q, navigate, onClose, doctors, specialties, healthTips]);
 
   const typeLabel = (t: Result["type"]) =>
     t === "doctor" ? "پزشک" : t === "specialty" ? "تخصص" : "مقاله";

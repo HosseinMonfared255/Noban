@@ -3,7 +3,8 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { doctors, type Doctor } from "../data";
+import type { Doctor } from "../lib/api";
+import { getDoctors, getSpecialties } from "../lib/api";
 import type { Nav } from "../nav";
 import Icon from "../components/Icon";
 import { useAppointments } from "../store/appointments";
@@ -92,16 +93,38 @@ export default function BookingFlow({ navigate }: { navigate: Nav }) {
 
   const [pay, setPay] = useState<"idle" | "processing" | "done">("idle");
 
+  const [allDocs, setAllDocs] = useState<Doctor[]>([]);
+  const [allSpecsData, setAllSpecsData] = useState<string[]>([]);
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [docsResult, specsResult] = await Promise.all([
+          getDoctors(),
+          getSpecialties()
+        ]);
+        if (Array.isArray(docsResult)) {
+          setAllDocs(docsResult);
+          const specs = Array.from(new Set(docsResult.map((d: Doctor) => d.specialty)));
+          setAllSpecsData(specs);
+        }
+      } catch (e) {
+        console.error("Failed to load doctors/specialties", e);
+      }
+    }
+    loadData();
+  }, []);
+
   const allSpecs = useMemo(
-    () => ["همه", ...Array.from(new Set(doctors.map((d) => d.specialty)))],
-    []
+    () => ["همه", ...allSpecsData],
+    [allSpecsData]
   );
   const filtered = useMemo(
     () =>
       specialty === "همه"
-        ? doctors
-        : doctors.filter((d) => d.specialty === specialty),
-    [specialty]
+        ? allDocs
+        : allDocs.filter((d) => d.specialty === specialty),
+    [specialty, allDocs]
   );
   const schedule = useMemo(
     () => (doctor ? buildSchedule(doctor) : []),

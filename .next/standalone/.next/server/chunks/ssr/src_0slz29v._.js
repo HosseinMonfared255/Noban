@@ -1,0 +1,3 @@
+module.exports=[2747,a=>{"use strict";var b=a.i(7997),c=a.i(39721);a.s(["default",0,function(){return(0,b.jsx)(c.default,{})}])},25210,function(a){a.n(a.i(2747))},42649,a=>{"use strict";a.s(["default",()=>b]);let b=(0,a.i(11857).registerClientReference)(function(){throw Error("Attempted to call the default export of [project]/src/components/LoadingSkeleton.tsx from the server, but it's on the client. It's not possible to invoke a client function from the server, it can only be rendered as a Component or passed to props of a Client Component.")},"[project]/src/components/LoadingSkeleton.tsx","default")},39721,a=>{"use strict";var b=a.i(42649);a.n(b)}];
+
+//# sourceMappingURL=src_0slz29v._.js.map

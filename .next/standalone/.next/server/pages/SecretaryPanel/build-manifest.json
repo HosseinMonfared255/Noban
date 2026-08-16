@@ -1,0 +1,19 @@
+{
+  "devFiles": [],
+  "ampDevFiles": [],
+  "polyfillFiles": [],
+  "lowPriorityFiles": [],
+  "rootMainFiles": [],
+  "pages": {
+    "/SecretaryPanel": [
+      "static/chunks/0gxhc8s2b61qy.js",
+      "static/chunks/250zexxy5ml1w.js",
+      "static/chunks/1rw9hpmmdx11x.js",
+      "static/chunks/turbopack-0u08wvg-nhalo.js"
+    ]
+  },
+  "ampFirstPages": [],
+  "rootMainFilesTree": {},
+  "pagesChunkGroupBootstrapParams": {},
+  "chunkLoadingGlobal": "TURBOPACK"
+}

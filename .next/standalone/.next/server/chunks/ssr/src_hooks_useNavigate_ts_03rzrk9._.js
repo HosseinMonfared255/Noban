@@ -1,0 +1,3 @@
+module.exports=[80142,a=>{"use strict";var b=a.i(72131),c=a.i(50944);a.s(["useNavigate",0,function(){let a=(0,c.useRouter)();return(0,b.useCallback)((b,c,d)=>{if("home"===b&&c)return"/"===window.location.pathname?void document.querySelector(c)?.scrollIntoView({behavior:"smooth"}):void a.push(`/${c?`#${c.slice(1)}`:""}`);let e={home:"/",doctors:"/doctors",doctor:`/doctors/${encodeURIComponent(d??"")}`,login:"/login",panel:"/panel/doctor",admin:"/panel/admin",secretary:"/panel/secretary",favorites:"/favorites",article:`/articles/${d??"1"}`,appointments:"/appointments",profile:"/profile",help:"/contact"}[b];e&&a.push(e)},[a])}])}];
+
+//# sourceMappingURL=src_hooks_useNavigate_ts_03rzrk9._.js.map

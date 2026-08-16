@@ -1,0 +1,20 @@
+{
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/about/page": "/about",
+  "/api/auth/login/otp/route": "/api/auth/login/otp",
+  "/api/auth/login/verify/route": "/api/auth/login/verify",
+  "/api/auth/signup/complete/route": "/api/auth/signup/complete",
+  "/api/auth/signup/otp/route": "/api/auth/signup/otp",
+  "/api/auth/signup/verify/route": "/api/auth/signup/verify",
+  "/api/route": "/api",
+  "/contact/page": "/contact",
+  "/doctors/[slug]/page": "/doctors/[slug]",
+  "/doctors/page": "/doctors",
+  "/login/page": "/login",
+  "/page": "/",
+  "/panel/admin/page": "/panel/admin",
+  "/panel/doctor/page": "/panel/doctor",
+  "/panel/secretary/page": "/panel/secretary",
+  "/profile/page": "/profile"
+}

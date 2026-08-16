@@ -1,0 +1,20 @@
+{
+  "/_global-error/page": "app/_global-error/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/about/page": "app/about/page.js",
+  "/api/auth/login/otp/route": "app/api/auth/login/otp/route.js",
+  "/api/auth/login/verify/route": "app/api/auth/login/verify/route.js",
+  "/api/auth/signup/complete/route": "app/api/auth/signup/complete/route.js",
+  "/api/auth/signup/otp/route": "app/api/auth/signup/otp/route.js",
+  "/api/auth/signup/verify/route": "app/api/auth/signup/verify/route.js",
+  "/api/route": "app/api/route.js",
+  "/contact/page": "app/contact/page.js",
+  "/doctors/[slug]/page": "app/doctors/[slug]/page.js",
+  "/doctors/page": "app/doctors/page.js",
+  "/login/page": "app/login/page.js",
+  "/page": "app/page.js",
+  "/panel/admin/page": "app/panel/admin/page.js",
+  "/panel/doctor/page": "app/panel/doctor/page.js",
+  "/panel/secretary/page": "app/panel/secretary/page.js",
+  "/profile/page": "app/profile/page.js"
+}

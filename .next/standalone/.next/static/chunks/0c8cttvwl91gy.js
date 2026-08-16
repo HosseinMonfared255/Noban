@@ -1,0 +1,8 @@
+__turbopack_load_page_chunks__("/DoctorPanel", [
+  "static/chunks/2tibt1q9pzrf9.js",
+  "static/chunks/1thl517u1j-vr.js",
+  "static/chunks/1rw9hpmmdx11x.js",
+  "static/chunks/250zexxy5ml1w.js",
+  "static/chunks/1hwlnzronnt4t.js",
+  "static/chunks/turbopack-2jv9c6gqaancc.js"
+])

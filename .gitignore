@@ -7,10 +7,9 @@ dist/
 build/
 .next/
 
-# Environment variables
-.env
-.env.local
-*.env.*
+# OS generated files
+.DS_Store
+Thumbs.db
 
 # IDE specific
 .vscode/
